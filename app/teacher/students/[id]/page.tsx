@@ -19,6 +19,7 @@ import { Badge, StatusBadge, UrgencyBadge } from "@/components/ui/badge";
 import { ResetPasswordForm } from "./reset-password-form";
 import { GenderForm } from "./gender-form";
 import { DeleteStudentForm } from "./delete-student-form";
+import { NameForm } from "./name-form";
 
 export const metadata: Metadata = { title: "Profil Siswa" };
 
@@ -96,6 +97,13 @@ export default async function StudentDetailPage({
           </p>
           <div className="mt-2">
             <GenderForm userId={student.id} current={student.gender} />
+          </div>
+          <div className="mt-2">
+            <NameForm
+              userId={student.id}
+              fullName={student.full_name}
+              nickname={student.nickname}
+            />
           </div>
         </div>
         <ResetPasswordForm userId={student.id} />

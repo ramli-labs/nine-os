@@ -7,6 +7,7 @@ import { teacherGuard } from "@/lib/teacher-guard";
 import { createAdminClient, ADMIN_UNAVAILABLE } from "@/lib/supabase/admin";
 import {
   createStudentSchema,
+  profileUpdateSchema,
   resetPasswordSchema,
   setGenderSchema,
 } from "@/lib/validation";
@@ -127,6 +128,37 @@ export async function deleteStudent(
   revalidatePath("/teacher/piket");
   revalidatePath("/teacher");
   redirect("/teacher/students");
+}
+
+/** Teacher edits a student's name & nickname (typos, formal records). */
+export async function updateStudentName(
+  _prev: ActionResult | null,
+  formData: FormData
+): Promise<ActionResult> {
+  const guard = await teacherGuard();
+  if (!guard.ok) return { ok: false, error: guard.error };
+
+  const id = z.string().uuid().safeParse(formData.get("user_id"));
+  if (!id.success) return { ok: false, error: "Akun tidak ditemukan." };
+
+  const parsed = profileUpdateSchema.safeParse({
+    full_name: formData.get("full_name"),
+    nickname: formData.get("nickname"),
+  });
+  if (!parsed.success) return validationError(parsed.error);
+
+  const { error } = await guard.supabase
+    .from("profiles")
+    .update(parsed.data)
+    .eq("id", id.data)
+    .eq("role", "student");
+
+  if (error) return { ok: false, error: "Belum tersimpan. Coba lagi." };
+
+  revalidatePath(`/teacher/students/${id.data}`);
+  revalidatePath("/teacher/students");
+  revalidatePath("/teacher/piket");
+  return { ok: true, message: "Nama tersimpan." };
 }
 
 /** Teacher sets/corrects a student's gender (for piket balancing). */
