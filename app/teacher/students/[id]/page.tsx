@@ -17,6 +17,7 @@ import { displayUsername } from "@/lib/constants";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, StatusBadge, UrgencyBadge } from "@/components/ui/badge";
 import { ResetPasswordForm } from "./reset-password-form";
+import { GenderForm } from "./gender-form";
 
 export const metadata: Metadata = { title: "Profil Siswa" };
 
@@ -92,6 +93,9 @@ export default async function StudentDetailPage({
             username <span className="font-medium">@{displayUsername(student.email)}</span>{" "}
             · Kelas {student.class_name}
           </p>
+          <div className="mt-2">
+            <GenderForm userId={student.id} current={student.gender} />
+          </div>
         </div>
         <ResetPasswordForm userId={student.id} />
       </div>

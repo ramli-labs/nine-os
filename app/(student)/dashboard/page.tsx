@@ -14,7 +14,13 @@ import { requireStudent } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { currentWeekStart, formatDateTimeID, greetingID } from "@/lib/date";
 import { FEELING_LABELS } from "@/lib/labels";
-import type { Announcement, ClassEvent, WeeklyPulse } from "@/lib/types";
+import { WEEKDAY_LABELS } from "@/lib/piket";
+import type {
+  Announcement,
+  ClassEvent,
+  PiketAssignment,
+  WeeklyPulse,
+} from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/feedback";
 
@@ -52,7 +58,7 @@ export default async function DashboardPage() {
   const supabase = await createClient();
   const weekStart = currentWeekStart();
 
-  const [pulseRes, eventsRes, announcementsRes, onboardingRes] =
+  const [pulseRes, eventsRes, announcementsRes, onboardingRes, piketRes] =
     await Promise.all([
       supabase
         .from("weekly_pulses")
@@ -77,6 +83,11 @@ export default async function DashboardPage() {
         .select("id")
         .eq("user_id", profile.id)
         .maybeSingle(),
+      supabase
+        .from("piket_assignments")
+        .select("*")
+        .eq("student_id", profile.id)
+        .maybeSingle(),
     ]);
 
   const pulse = pulseRes.data as WeeklyPulse | null;
@@ -84,6 +95,7 @@ export default async function DashboardPage() {
   const announcements = (announcementsRes.data ?? []) as Announcement[];
   const hasOnboarded = Boolean(onboardingRes.data);
   const focus = announcements[0] ?? null;
+  const piket = piketRes.data as PiketAssignment | null;
 
   return (
     <div className="space-y-6">
@@ -93,6 +105,19 @@ export default async function DashboardPage() {
         </h1>
         <p className="mt-1 text-sm text-navy-600">
           Selamat datang di ruang kelasmu.
+          {piket ? (
+            <>
+              {" "}
+              Hari piketmu:{" "}
+              <Link
+                href="/piket"
+                className="font-medium text-navy-900 underline-offset-2 hover:underline"
+              >
+                {WEEKDAY_LABELS[piket.weekday]}
+              </Link>
+              .
+            </>
+          ) : null}
         </p>
       </section>
 

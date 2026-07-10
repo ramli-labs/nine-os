@@ -17,8 +17,17 @@ describe("account provisioning (username + password)", () => {
     full_name: "Arka Contoh",
     nickname: "Arka",
     username: "arka.pratama",
+    gender: "L",
     password: "rahasia-kuat-9",
   };
+
+  it("requires a gender (needed for piket balancing)", () => {
+    const { gender: _omit, ...noGender } = base;
+    expect(createStudentSchema.safeParse(noGender).success).toBe(false);
+    expect(
+      createStudentSchema.safeParse({ ...base, gender: "X" }).success
+    ).toBe(false);
+  });
 
   it("accepts a valid student account", () => {
     expect(createStudentSchema.safeParse(base).success).toBe(true);

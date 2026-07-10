@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { teacherGuard } from "@/lib/teacher-guard";
 import { createAdminClient, ADMIN_UNAVAILABLE } from "@/lib/supabase/admin";
-import { createStudentSchema, resetPasswordSchema } from "@/lib/validation";
+import {
+  createStudentSchema,
+  resetPasswordSchema,
+  setGenderSchema,
+} from "@/lib/validation";
 import { identifierToEmail } from "@/lib/constants";
 import { validationError } from "@/lib/action-helpers";
 import type { ActionResult } from "@/lib/types";
@@ -25,6 +29,7 @@ export async function createStudent(
     full_name: formData.get("full_name"),
     nickname: formData.get("nickname"),
     username: formData.get("username"),
+    gender: formData.get("gender"),
     password: formData.get("password"),
   });
   if (!parsed.success) return validationError(parsed.error);
@@ -33,7 +38,7 @@ export async function createStudent(
   if (!admin) return { ok: false, error: ADMIN_UNAVAILABLE };
 
   const email = identifierToEmail(parsed.data.username);
-  const { error } = await admin.auth.admin.createUser({
+  const { data: created, error } = await admin.auth.admin.createUser({
     email,
     password: parsed.data.password,
     email_confirm: true,
@@ -60,11 +65,47 @@ export async function createStudent(
     };
   }
 
+  // Profile row is created by the auth trigger; record the gender
+  // (used by the piket generator to balance duty groups).
+  if (created?.user) {
+    await admin
+      .from("profiles")
+      .update({ gender: parsed.data.gender })
+      .eq("id", created.user.id);
+  }
+
   revalidatePath("/teacher/students");
   return {
     ok: true,
     message: `Akun “${parsed.data.username}” berhasil dibuat. Catat dan serahkan password ini kepada ${parsed.data.nickname} — demi keamanan, password tidak akan ditampilkan lagi.`,
   };
+}
+
+/** Teacher sets/corrects a student's gender (for piket balancing). */
+export async function setStudentGender(
+  _prev: ActionResult | null,
+  formData: FormData
+): Promise<ActionResult> {
+  const guard = await teacherGuard();
+  if (!guard.ok) return { ok: false, error: guard.error };
+
+  const parsed = setGenderSchema.safeParse({
+    user_id: formData.get("user_id"),
+    gender: formData.get("gender"),
+  });
+  if (!parsed.success) return validationError(parsed.error);
+
+  const { error } = await guard.supabase
+    .from("profiles")
+    .update({ gender: parsed.data.gender })
+    .eq("id", parsed.data.user_id)
+    .eq("role", "student");
+
+  if (error) return { ok: false, error: "Belum tersimpan. Coba lagi." };
+
+  revalidatePath(`/teacher/students/${parsed.data.user_id}`);
+  revalidatePath("/teacher/piket");
+  return { ok: true, message: "Tersimpan." };
 }
 
 /** Teacher resets a student's password (no email recovery flow needed). */

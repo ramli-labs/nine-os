@@ -34,6 +34,15 @@ on conflict (id) do nothing;
 update public.profiles set role = 'teacher'
 where id = 'd0000000-0000-4000-8000-000000000001';
 
+-- Gender for the fake students (used by the piket generator).
+update public.profiles set gender = 'L'
+where id in ('d0000000-0000-4000-8000-000000000002',
+             'd0000000-0000-4000-8000-000000000004',
+             'd0000000-0000-4000-8000-000000000006');
+update public.profiles set gender = 'P'
+where id in ('d0000000-0000-4000-8000-000000000003',
+             'd0000000-0000-4000-8000-000000000005');
+
 -- ── Sample content (created by the dev teacher) ───────────────
 insert into public.announcements (title, content, is_published, published_at, created_by) values
   ('Selamat datang di NINE.OS',

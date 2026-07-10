@@ -218,4 +218,68 @@ end $$;
 
 reset role;
 
+-- ════════════════════════════════════════════════════════════
+-- PIKET (migration 0003)
+-- ════════════════════════════════════════════════════════════
+set role authenticated;
+set request.jwt.claims to '{"sub":"d0000000-0000-4000-8000-000000000001","role":"authenticated"}';
+
+do $$
+declare n int;
+begin
+  -- 25. teacher creates piket assignments
+  insert into public.piket_assignments (student_id, weekday, display_order) values
+    ('d0000000-0000-4000-8000-000000000002', 1, 0),
+    ('d0000000-0000-4000-8000-000000000003', 2, 0);
+  raise notice 'PASS 25: teacher creates piket schedule';
+
+  -- 26. teacher can update student gender (but not role — checked in test 9)
+  update public.profiles set gender = 'L'
+    where id = 'd0000000-0000-4000-8000-000000000002';
+  get diagnostics n = row_count;
+  if n <> 1 then raise exception 'FAIL 26: teacher could not set student gender'; end if;
+  raise notice 'PASS 26: teacher sets student gender';
+end $$;
+
+reset role;
+reset request.jwt.claims;
+
+set role authenticated;
+set request.jwt.claims to '{"sub":"d0000000-0000-4000-8000-000000000002","role":"authenticated"}';
+
+do $$
+declare n int;
+begin
+  -- 27. students read the whole schedule (class-visible)
+  select count(*) into n from public.piket_assignments;
+  if n < 2 then raise exception 'FAIL 27: student sees % piket rows (expected 2)', n; end if;
+  raise notice 'PASS 27: students can read the schedule';
+
+  -- 28. students cannot write the schedule
+  begin
+    insert into public.piket_assignments (student_id, weekday) values (auth.uid(), 5);
+    raise exception 'FAIL 28: student inserted a piket assignment';
+  exception when insufficient_privilege or unique_violation then
+    raise notice 'PASS 28: students cannot modify the schedule';
+  end;
+end $$;
+
+reset role;
+reset request.jwt.claims;
+
+set role anon;
+
+do $$
+begin
+  -- 29. schedule (student names!) is NOT public
+  begin
+    perform count(*) from public.piket_assignments;
+    raise exception 'FAIL 29: anon can read piket schedule';
+  exception when insufficient_privilege then
+    raise notice 'PASS 29: piket schedule hidden from public';
+  end;
+end $$;
+
+reset role;
+
 select 'ALL RLS TESTS PASSED' as result;

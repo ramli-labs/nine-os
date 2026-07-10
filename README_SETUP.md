@@ -21,7 +21,10 @@ Siswa login dengan **username + password** — tanpa email. Pendaftaran publik d
 1. Buka **SQL Editor** di dashboard Supabase.
 2. Jalankan isi `supabase/migrations/0001_schema.sql` (seluruh file, sekali jalan).
 3. Jalankan isi `supabase/migrations/0002_rls.sql`.
-4. Cek: **Table Editor** kini menampilkan 10 tabel, semuanya berlabel **RLS enabled**.
+4. Jalankan isi `supabase/migrations/0003_piket.sql` (gender siswa + jadwal piket).
+5. Cek: **Table Editor** kini menampilkan 11 tabel, semuanya berlabel **RLS enabled**.
+
+> Sudah terlanjur menjalankan 0001–0002 sebelumnya? Cukup jalankan 0003 saja.
 
 > Alternatif via CLI: `supabase link --project-ref <REF>` lalu `supabase db push`.
 

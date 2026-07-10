@@ -31,6 +31,8 @@ export type Feeling =
   | "campur_aduk"
   | "lainnya";
 
+export type Gender = "L" | "P";
+
 export interface Profile {
   id: string;
   full_name: string;
@@ -39,8 +41,17 @@ export interface Profile {
   role: UserRole;
   class_name: string;
   avatar_url: string | null;
+  gender: Gender | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface PiketAssignment {
+  id: string;
+  student_id: string;
+  weekday: number; // 1=Senin … 5=Jumat
+  display_order: number;
+  created_at: string;
 }
 
 export interface StudentProfile {

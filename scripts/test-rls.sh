@@ -64,8 +64,7 @@ fi
 echo "→ auth shim + migrations + seed + tests"
 run_sql nineos_test \
   supabase/tests/auth_shim.sql \
-  supabase/migrations/0001_schema.sql \
-  supabase/migrations/0002_rls.sql \
+  supabase/migrations/*.sql \
   supabase/seed.sql \
   supabase/tests/rls_tests.sql
 

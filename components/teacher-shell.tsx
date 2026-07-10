@@ -13,6 +13,7 @@ const nav = [
   { href: "/teacher/requests", label: "Tanya Wali" },
   { href: "/teacher/announcements", label: "Pengumuman" },
   { href: "/teacher/events", label: "Agenda" },
+  { href: "/teacher/piket", label: "Piket" },
   { href: "/teacher/resources", label: "Materi" },
   { href: "/teacher/charter", label: "Kesepakatan" },
 ];

@@ -67,6 +67,10 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Isi password.").max(200),
 });
 
+export const genderEnum = z.enum(["L", "P"], {
+  message: "Pilih L atau P.",
+});
+
 export const createStudentSchema = z.object({
   full_name: z
     .string()
@@ -79,10 +83,16 @@ export const createStudentSchema = z.object({
     .min(1, "Nama panggilan wajib diisi.")
     .max(40, "Maksimal 40 karakter."),
   username: usernameField,
+  gender: genderEnum,
   password: z
     .string()
     .min(8, "Password minimal 8 karakter.")
     .max(72, "Password maksimal 72 karakter."),
+});
+
+export const setGenderSchema = z.object({
+  user_id: z.string().uuid(),
+  gender: genderEnum,
 });
 
 export const resetPasswordSchema = z.object({

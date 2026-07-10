@@ -10,7 +10,7 @@ Ruang digital kelas 9 SMP Labschool Jakarta untuk agenda, refleksi, komunikasi, 
 
 **Siswa** (login): beranda personal (fokus minggu ini, agenda, refleksi, pengumuman), form “Kenali Saya” (onboarding 9 pertanyaan, 3 langkah, tersimpan per langkah), Denyut Mingguan (energi, tekanan, perasaan, kebutuhan bantuan — satu per minggu, bisa diperbarui), Tanya Wali (kategori, urgensi, status terpantau), Perjalananku (3 target: akademik, karakter, keberanian), Kapsul Waktu (surat untuk Juni 2027 — tidak dibaca siapa pun, termasuk wali kelas), dan profil.
 
-**Wali kelas** (login + role teacher): ringkasan kelas + daftar “Perlu Perhatian” (berbasis laporan siswa sendiri, tanpa label diagnosis), daftar & profil pendampingan siswa, **pembuatan akun siswa + reset password** (siswa login dengan username, tanpa email), ikhtisar Denyut (rata-rata, sebaran perasaan, partisipasi, respons individual), workflow Tanya Wali (submitted → seen → follow_up → closed), serta CRUD pengumuman, agenda, materi, dan kesepakatan kelas.
+**Wali kelas** (login + role teacher): ringkasan kelas + daftar “Perlu Perhatian” (berbasis laporan siswa sendiri, tanpa label diagnosis), daftar & profil pendampingan siswa, **pembuatan akun siswa + reset password** (siswa login dengan username, tanpa email), **generator jadwal piket acak** (Senin–Jumat dibagi rata, komposisi L/P per hari seimbang, bisa diacak ulang kapan saja), ikhtisar Denyut (rata-rata, sebaran perasaan, partisipasi, respons individual), workflow Tanya Wali (submitted → seen → follow_up → closed), serta CRUD pengumuman, agenda, materi, dan kesepakatan kelas.
 
 ## Tech stack
 

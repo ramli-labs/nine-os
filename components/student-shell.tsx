@@ -11,6 +11,7 @@ import {
   BookOpen,
   Handshake,
   UserRound,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/logo";
@@ -24,6 +25,7 @@ const primaryNav = [
 ];
 
 const secondaryNav = [
+  { href: "/piket", label: "Piket", icon: Sparkles },
   { href: "/resources", label: "Materi", icon: BookOpen },
   { href: "/class-charter", label: "Kesepakatan", icon: Handshake },
 ];

@@ -67,6 +67,32 @@ export function NewStudentForm() {
       </div>
 
       <div>
+        <Label>Jenis kelamin</Label>
+        <div className="mt-1.5 flex gap-3">
+          {[
+            { value: "L", label: "Laki-laki" },
+            { value: "P", label: "Perempuan" },
+          ].map(({ value, label }) => (
+            <label
+              key={value}
+              className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border border-navy-200 bg-white px-4 py-2.5 text-sm text-navy-800 has-[:checked]:border-navy-900 has-[:checked]:bg-navy-900 has-[:checked]:text-cream-50"
+            >
+              <input
+                type="radio"
+                name="gender"
+                value={value}
+                required
+                className="sr-only"
+              />
+              {label}
+            </label>
+          ))}
+        </div>
+        <FieldError message={fe?.gender?.[0]} />
+        <Hint>Dipakai untuk membagi rata kelompok piket.</Hint>
+      </div>
+
+      <div>
         <Label htmlFor="username">Username</Label>
         <Input
           id="username"
