@@ -282,4 +282,28 @@ end $$;
 
 reset role;
 
+-- ════════════════════════════════════════════════════════════
+-- SIGNUP TRIGGER (migration 0004) — as superuser
+-- ════════════════════════════════════════════════════════════
+do $$
+declare g text; r text;
+begin
+  -- 30. gender from user_metadata lands on the profile atomically,
+  --     and role is still forced to 'student' regardless of metadata.
+  insert into auth.users (id, email, raw_user_meta_data) values
+    ('d0000000-0000-4000-8000-000000000099',
+     'trigger.test@siswa.nineos.id',
+     '{"full_name":"Trigger Test","nickname":"Trig","gender":"P","role":"teacher"}');
+
+  select gender, role::text into g, r from public.profiles
+    where id = 'd0000000-0000-4000-8000-000000000099';
+  if g is distinct from 'P' then
+    raise exception 'FAIL 30: gender from metadata not applied (got %)', g;
+  end if;
+  if r <> 'student' then
+    raise exception 'FAIL 30b: signup trigger produced role % (expected student)', r;
+  end if;
+  raise notice 'PASS 30: signup trigger sets gender, forces student role';
+end $$;
+
 select 'ALL RLS TESTS PASSED' as result;

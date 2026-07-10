@@ -40,6 +40,8 @@ export async function createStudent(
   if (!admin) return { ok: false, error: ADMIN_UNAVAILABLE };
 
   const email = identifierToEmail(parsed.data.username);
+  // gender rides along in user_metadata — the handle_new_user trigger
+  // writes it into the profile atomically (see migration 0004).
   const { data: created, error } = await admin.auth.admin.createUser({
     email,
     password: parsed.data.password,
@@ -47,6 +49,7 @@ export async function createStudent(
     user_metadata: {
       full_name: parsed.data.full_name,
       nickname: parsed.data.nickname,
+      gender: parsed.data.gender,
     },
   });
 
@@ -67,13 +70,16 @@ export async function createStudent(
     };
   }
 
-  // Profile row is created by the auth trigger; record the gender
-  // (used by the piket generator to balance duty groups).
+  // Belt-and-braces: the trigger already set the gender; this repair
+  // only matters if the project runs an older trigger (pre-0004).
   if (created?.user) {
-    await admin
+    const { error: genderError } = await admin
       .from("profiles")
       .update({ gender: parsed.data.gender })
       .eq("id", created.user.id);
+    if (genderError) {
+      console.error("createStudent: gender backfill failed", genderError);
+    }
   }
 
   revalidatePath("/teacher/students");
