@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { z } from "zod";
 import { teacherGuard } from "@/lib/teacher-guard";
 import { createAdminClient, ADMIN_UNAVAILABLE } from "@/lib/supabase/admin";
 import {
@@ -79,6 +81,46 @@ export async function createStudent(
     ok: true,
     message: `Akun “${parsed.data.username}” berhasil dibuat. Catat dan serahkan password ini kepada ${parsed.data.nickname} — demi keamanan, password tidak akan ditampilkan lagi.`,
   };
+}
+
+/**
+ * Teacher permanently deletes a student account. All of the student's
+ * data (profile, pulses, requests, goals, time capsule, piket slot)
+ * is wiped by ON DELETE CASCADE. Useful for dummy accounts and for
+ * resetting the class at the start of a new school year.
+ */
+export async function deleteStudent(
+  _prev: ActionResult | null,
+  formData: FormData
+): Promise<ActionResult> {
+  const guard = await teacherGuard();
+  if (!guard.ok) return { ok: false, error: guard.error };
+
+  const id = z.string().uuid().safeParse(formData.get("user_id"));
+  if (!id.success) return { ok: false, error: "Akun tidak ditemukan." };
+
+  // Only student accounts can be deleted — never a teacher.
+  const { data: target } = await guard.supabase
+    .from("profiles")
+    .select("role, nickname, full_name")
+    .eq("id", id.data)
+    .maybeSingle();
+  if (!target || target.role !== "student") {
+    return { ok: false, error: "Akun ini tidak dapat dihapus dari sini." };
+  }
+
+  const admin = createAdminClient();
+  if (!admin) return { ok: false, error: ADMIN_UNAVAILABLE };
+
+  const { error } = await admin.auth.admin.deleteUser(id.data);
+  if (error) {
+    return { ok: false, error: "Akun belum berhasil dihapus. Coba lagi." };
+  }
+
+  revalidatePath("/teacher/students");
+  revalidatePath("/teacher/piket");
+  revalidatePath("/teacher");
+  redirect("/teacher/students");
 }
 
 /** Teacher sets/corrects a student's gender (for piket balancing). */

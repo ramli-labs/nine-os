@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, StatusBadge, UrgencyBadge } from "@/components/ui/badge";
 import { ResetPasswordForm } from "./reset-password-form";
 import { GenderForm } from "./gender-form";
+import { DeleteStudentForm } from "./delete-student-form";
 
 export const metadata: Metadata = { title: "Profil Siswa" };
 
@@ -235,6 +236,11 @@ export default async function StudentDetailPage({
         Terdaftar sejak {formatDateTimeID(student.created_at)}. Kapsul Waktu
         siswa tidak ditampilkan — data tersebut privat milik siswa.
       </p>
+
+      <DeleteStudentForm
+        userId={student.id}
+        username={displayUsername(student.email)}
+      />
     </div>
   );
 }
