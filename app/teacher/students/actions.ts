@@ -1,0 +1,112 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { teacherGuard } from "@/lib/teacher-guard";
+import { createAdminClient, ADMIN_UNAVAILABLE } from "@/lib/supabase/admin";
+import { createStudentSchema, resetPasswordSchema } from "@/lib/validation";
+import { identifierToEmail } from "@/lib/constants";
+import { validationError } from "@/lib/action-helpers";
+import type { ActionResult } from "@/lib/types";
+
+/**
+ * Teacher provisions a student account (username + password).
+ * Layered protection: teacherGuard (role from DB, server-side) →
+ * service-role admin client (server-only module) → auth trigger still
+ * forces role='student' on the new profile.
+ */
+export async function createStudent(
+  _prev: ActionResult | null,
+  formData: FormData
+): Promise<ActionResult> {
+  const guard = await teacherGuard();
+  if (!guard.ok) return { ok: false, error: guard.error };
+
+  const parsed = createStudentSchema.safeParse({
+    full_name: formData.get("full_name"),
+    nickname: formData.get("nickname"),
+    username: formData.get("username"),
+    password: formData.get("password"),
+  });
+  if (!parsed.success) return validationError(parsed.error);
+
+  const admin = createAdminClient();
+  if (!admin) return { ok: false, error: ADMIN_UNAVAILABLE };
+
+  const email = identifierToEmail(parsed.data.username);
+  const { error } = await admin.auth.admin.createUser({
+    email,
+    password: parsed.data.password,
+    email_confirm: true,
+    user_metadata: {
+      full_name: parsed.data.full_name,
+      nickname: parsed.data.nickname,
+    },
+  });
+
+  if (error) {
+    if (
+      error.code === "email_exists" ||
+      /already.*(registered|exists)/i.test(error.message)
+    ) {
+      return {
+        ok: false,
+        error: `Username “${parsed.data.username}” sudah dipakai. Pilih yang lain.`,
+        fieldErrors: { username: ["Username sudah dipakai."] },
+      };
+    }
+    return {
+      ok: false,
+      error: "Akun belum berhasil dibuat. Coba sekali lagi.",
+    };
+  }
+
+  revalidatePath("/teacher/students");
+  return {
+    ok: true,
+    message: `Akun “${parsed.data.username}” berhasil dibuat. Catat dan serahkan password ini kepada ${parsed.data.nickname} — demi keamanan, password tidak akan ditampilkan lagi.`,
+  };
+}
+
+/** Teacher resets a student's password (no email recovery flow needed). */
+export async function resetStudentPassword(
+  _prev: ActionResult | null,
+  formData: FormData
+): Promise<ActionResult> {
+  const guard = await teacherGuard();
+  if (!guard.ok) return { ok: false, error: guard.error };
+
+  const parsed = resetPasswordSchema.safeParse({
+    user_id: formData.get("user_id"),
+    password: formData.get("password"),
+  });
+  if (!parsed.success) return validationError(parsed.error);
+
+  // Only student accounts can be managed from the app — never other
+  // teachers (defense-in-depth on top of the role guard).
+  const { data: target } = await guard.supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", parsed.data.user_id)
+    .maybeSingle();
+  if (!target || target.role !== "student") {
+    return { ok: false, error: "Akun ini tidak dapat dikelola dari sini." };
+  }
+
+  const admin = createAdminClient();
+  if (!admin) return { ok: false, error: ADMIN_UNAVAILABLE };
+
+  const { error } = await admin.auth.admin.updateUserById(
+    parsed.data.user_id,
+    { password: parsed.data.password }
+  );
+
+  if (error) {
+    return { ok: false, error: "Password belum berhasil diubah. Coba lagi." };
+  }
+
+  return {
+    ok: true,
+    message:
+      "Password baru tersimpan. Serahkan kepada siswa — tidak akan ditampilkan lagi.",
+  };
+}
