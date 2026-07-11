@@ -20,6 +20,7 @@ import { ResetPasswordForm } from "./reset-password-form";
 import { GenderForm } from "./gender-form";
 import { DeleteStudentForm } from "./delete-student-form";
 import { NameForm } from "./name-form";
+import { StatusForm } from "./status-form";
 
 export const metadata: Metadata = { title: "Profil Siswa" };
 
@@ -94,6 +95,20 @@ export default async function StudentDetailPage({
             {student.nickname ? `“${student.nickname}” · ` : ""}
             username <span className="font-medium">@{displayUsername(student.email)}</span>{" "}
             · Kelas {student.class_name}
+            {student.status === "inactive" ? (
+              <>
+                {" "}
+                <Badge tone="red">Nonaktif</Badge>
+              </>
+            ) : null}
+          </p>
+          <p className="mt-1 text-xs text-navy-400">
+            {student.last_login_at
+              ? `Terakhir masuk ${formatDateTimeID(student.last_login_at)}`
+              : "Belum pernah masuk"}
+            {student.must_change_password
+              ? " · masih memakai password sementara"
+              : ""}
           </p>
           <div className="mt-2">
             <GenderForm userId={student.id} current={student.gender} />
@@ -106,7 +121,10 @@ export default async function StudentDetailPage({
             />
           </div>
         </div>
-        <ResetPasswordForm userId={student.id} />
+        <div className="flex flex-col items-end gap-3">
+          <ResetPasswordForm userId={student.id} />
+          <StatusForm userId={student.id} current={student.status} />
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

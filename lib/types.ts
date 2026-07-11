@@ -33,6 +33,8 @@ export type Feeling =
 
 export type Gender = "L" | "P";
 
+export type AccountStatus = "active" | "inactive";
+
 export interface Profile {
   id: string;
   full_name: string;
@@ -42,15 +44,58 @@ export interface Profile {
   class_name: string;
   avatar_url: string | null;
   gender: Gender | null;
+  status: AccountStatus;
+  must_change_password: boolean;
+  last_login_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PiketSchedule {
+  id: string;
+  duty_date: string; // YYYY-MM-DD
+  generated_by: string;
+  status: "active" | "archived";
   created_at: string;
   updated_at: string;
 }
 
 export interface PiketAssignment {
   id: string;
+  schedule_id: string;
   student_id: string;
-  weekday: number; // 1=Senin … 5=Jumat
-  display_order: number;
+  role: string | null;
+  completed: boolean;
+  created_at: string;
+}
+
+export interface PiketExclusion {
+  id: string;
+  student_id: string;
+  exclusion_date: string;
+  reason: string | null;
+  created_by: string;
+  created_at: string;
+}
+
+export interface WaliRequestNote {
+  id: string;
+  request_id: string;
+  teacher_note: string | null;
+  follow_up_at: string | null;
+  closed_reason: string | null;
+  updated_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AuditLog {
+  id: string;
+  actor_id: string;
+  action: string;
+  target_type: string;
+  target_id: string | null;
+  metadata: Record<string, unknown> | null;
   created_at: string;
 }
 
@@ -168,6 +213,8 @@ export interface CharterItem {
 }
 
 // ── Shared server-action result shape ────────────────────────
+// `secret` carries a one-time value (e.g. temporary password) that
+// the UI shows exactly once and is never persisted anywhere.
 export type ActionResult =
-  | { ok: true; message?: string }
+  | { ok: true; message?: string; secret?: string }
   | { ok: false; error: string; fieldErrors?: Record<string, string[]> };

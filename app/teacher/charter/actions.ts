@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { teacherGuard } from "@/lib/teacher-guard";
+import { logAudit } from "@/lib/audit";
 import { charterItemSchema } from "@/lib/validation";
 import { validationError, SAVE_FAILED } from "@/lib/action-helpers";
 import type { ActionResult } from "@/lib/types";
@@ -43,6 +44,11 @@ export async function saveCharterItem(
         .insert({ ...parsed.data, created_by: guard.userId });
 
   if (error) return SAVE_FAILED;
+
+  await logAudit(guard.supabase, guard.userId,
+    id ? "charter.update" : "charter.create",
+    "charter_item", id ? id.data : null, { title: parsed.data.title });
+
   revalidate();
   return { ok: true, message: "Kesepakatan tersimpan." };
 }
@@ -54,6 +60,8 @@ export async function deleteCharterItem(formData: FormData): Promise<void> {
   const id = idSchema.safeParse(formData.get("id"));
   if (!id.success) return;
 
+  await logAudit(guard.supabase, guard.userId, "charter.delete",
+    "charter_item", id.data);
   await guard.supabase.from("class_charter_items").delete().eq("id", id.data);
   revalidate();
 }

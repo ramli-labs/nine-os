@@ -21,10 +21,15 @@ Siswa login dengan **username + password** — tanpa email. Pendaftaran publik d
 1. Buka **SQL Editor** di dashboard Supabase.
 2. Jalankan isi `supabase/migrations/0001_schema.sql` (seluruh file, sekali jalan).
 3. Jalankan isi `supabase/migrations/0002_rls.sql`.
-4. Jalankan isi `supabase/migrations/0003_piket.sql` (gender siswa + jadwal piket).
-5. Cek: **Table Editor** kini menampilkan 11 tabel, semuanya berlabel **RLS enabled**.
+4. Jalankan isi `supabase/migrations/0003_piket.sql`.
+5. Jalankan isi `supabase/migrations/0004_gender_on_signup.sql`.
+6. Jalankan isi `supabase/migrations/0005_feeling_detail.sql`.
+7. Jalankan isi `supabase/migrations/0006_revision.sql` (status akun, audit log,
+   catatan tindak lanjut, piket harian).
+8. Cek: **Table Editor** kini menampilkan 15 tabel, semuanya berlabel **RLS enabled**.
 
-> Sudah terlanjur menjalankan 0001–0002 sebelumnya? Cukup jalankan 0003 saja.
+> Proyek yang sudah berjalan: cukup jalankan file migrasi yang BELUM pernah
+> dijalankan, berurutan dari nomor terkecil.
 
 > Alternatif via CLI: `supabase link --project-ref <REF>` lalu `supabase db push`.
 
@@ -80,12 +85,18 @@ masuk dengan **email + password** tadi → kamu diarahkan ke `/teacher`.
 
 ## 7. Kelola akun siswa (dari dalam aplikasi)
 
-1. Buka **/teacher/students → Tambah siswa**.
-2. Isi nama lengkap, nama panggilan, username (mis. `arka`), dan password awal
-   (tombol **Acak** membuat password yang mudah disalin). **Catat sebelum
-   menyimpan** — password tidak ditampilkan lagi.
-3. Siswa login di `/login` dengan username + password tersebut.
-4. Lupa password → buka profil siswa → **Atur ulang password**.
+1. Buka **/teacher/students → Tambah siswa** — isi nama, panggilan, L/P,
+   dan username. **Password sementara dibuat otomatis oleh sistem** dan
+   tampil SEKALI setelah akun jadi (ada tombol Salin) — serahkan segera;
+   sistem tidak menyimpannya di mana pun.
+2. Siswa login dengan username + password sementara → **otomatis diminta
+   membuat password sendiri** sebelum bisa memakai aplikasi.
+3. Lupa password → profil siswa → **Atur ulang password** → password
+   sementara baru tampil sekali, siswa kembali diminta mengganti.
+4. Siswa pindah/keluar → **Nonaktifkan akun** (login terblokir, data utuh,
+   bisa diaktifkan lagi). Hapus permanen hanya untuk akun dummy.
+5. Aksi-aksi penting wali kelas tercatat di tabel `audit_logs`
+   (hanya terbaca teacher; belum ada UI khusus — lihat via Table Editor).
 
 Fitur ini memakai `SUPABASE_SERVICE_ROLE_KEY` secara server-only dan hanya bisa
 dijalankan akun teacher. Tanpa env tersebut, halaman lain tetap normal — hanya

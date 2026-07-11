@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { teacherGuard } from "@/lib/teacher-guard";
+import { logAudit } from "@/lib/audit";
 import { announcementSchema } from "@/lib/validation";
 import { validationError, SAVE_FAILED } from "@/lib/action-helpers";
 import type { ActionResult } from "@/lib/types";
@@ -48,6 +49,11 @@ export async function saveAnnouncement(
         .insert({ ...payload, created_by: guard.userId });
 
   if (error) return SAVE_FAILED;
+
+  await logAudit(guard.supabase, guard.userId,
+    id ? "announcement.update" : "announcement.create",
+    "announcement", id ? id.data : null, { title: parsed.data.title });
+
   revalidate();
   return { ok: true, message: "Pengumuman tersimpan." };
 }
@@ -59,6 +65,8 @@ export async function deleteAnnouncement(formData: FormData): Promise<void> {
   const id = idSchema.safeParse(formData.get("id"));
   if (!id.success) return;
 
+  await logAudit(guard.supabase, guard.userId, "announcement.delete",
+    "announcement", id.data);
   await guard.supabase.from("announcements").delete().eq("id", id.data);
   revalidate();
 }

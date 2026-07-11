@@ -32,6 +32,10 @@ export async function getProfile(): Promise<Profile | null> {
 export async function requireAuth(): Promise<Profile> {
   const profile = await getProfile();
   if (!profile) redirect("/login");
+  // Sesi lama milik akun yang dinonaktifkan → putuskan sekarang.
+  if (profile.status === "inactive") redirect("/auth/signout?reason=inactive");
+  // Masih memakai password sementara → wajib ganti dulu.
+  if (profile.must_change_password) redirect("/change-password");
   return profile;
 }
 

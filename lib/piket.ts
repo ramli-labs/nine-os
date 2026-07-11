@@ -1,73 +1,73 @@
-// ── Piket (class duty) schedule generator ─────────────────────
-// Distributes students across Mon–Fri so that day sizes differ by
-// at most 1 and each day's gender mix is as balanced as possible.
-
-export const WEEKDAY_LABELS: Record<number, string> = {
-  1: "Senin",
-  2: "Selasa",
-  3: "Rabu",
-  4: "Kamis",
-  5: "Jumat",
-};
+// ── Piket harian — pemilihan petugas yang adil ────────────────
+// Bukan sekadar shuffle: kandidat diurutkan berdasarkan beban piket
+// historis (paling sedikit didahulukan), menghindari petugas kemarin
+// bila jumlah siswa memungkinkan, menyeimbangkan L/P, dan random
+// HANYA di antara kandidat dengan beban setara.
 
 export const GENDER_LABELS: Record<"L" | "P", string> = {
   L: "Laki-laki",
   P: "Perempuan",
 };
 
-export interface PiketStudent {
+export interface DutyCandidate {
   id: string;
   gender: "L" | "P" | null;
-}
-
-export interface PiketSlot {
-  student_id: string;
-  weekday: number; // 1..5
-  display_order: number;
-}
-
-function shuffle<T>(input: T[], rng: () => number): T[] {
-  const arr = [...input];
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
+  /** berapa kali pernah piket (riwayat piket_assignments) */
+  historyCount: number;
+  /** bertugas pada jadwal hari sebelumnya */
+  servedYesterday: boolean;
 }
 
 /**
- * Fair random distribution:
- * 1. shuffle each gender group,
- * 2. interleave them (L,P,L,P,…) into one deck,
- * 3. deal the deck round-robin over a shuffled day order.
+ * Memilih `size` petugas dari kandidat (siswa aktif yang tidak
+ * di-exclude pada tanggal tsb — penyaringan itu tugas pemanggil).
  *
- * Dealing an alternating deck with step 5 keeps each day's gender
- * difference ≤ 1 when group sizes allow, and day sizes automatically
- * come out ⌈n/5⌉ / ⌊n/5⌋ (32 students → 7,7,6,6,6).
+ * Urutan prioritas per slot:
+ *   1. beban historis terendah,
+ *   2. bukan petugas kemarin (bila kandidat lain masih cukup),
+ *   3. gender yang menyeimbangkan tim,
+ *   4. acak di antara yang setara.
  */
-export function generatePiket(
-  students: PiketStudent[],
+export function pickDutyTeam(
+  candidates: DutyCandidate[],
+  size: number,
   rng: () => number = Math.random
-): PiketSlot[] {
-  const male = shuffle(students.filter((s) => s.gender === "L"), rng);
-  const female = shuffle(students.filter((s) => s.gender === "P"), rng);
-  const unknown = shuffle(students.filter((s) => !s.gender), rng);
+): string[] {
+  const teamIds: string[] = [];
+  let teamL = 0;
+  let teamP = 0;
 
-  const [longer, shorter] =
-    male.length >= female.length ? [male, female] : [female, male];
-
-  const deck: PiketStudent[] = [];
-  for (let i = 0; i < longer.length; i++) {
-    deck.push(longer[i]);
-    if (shorter[i]) deck.push(shorter[i]);
+  // Hindari petugas kemarin bila sisanya masih mencukupi.
+  let pool = [...candidates];
+  const fresh = pool.filter((c) => !c.servedYesterday);
+  if (fresh.length >= Math.min(size, pool.length)) {
+    pool = fresh;
   }
-  deck.push(...unknown);
 
-  const dayOrder = shuffle([1, 2, 3, 4, 5], rng);
+  while (teamIds.length < size && pool.length > 0) {
+    const minCount = Math.min(...pool.map((c) => c.historyCount));
+    let tier = pool.filter((c) => c.historyCount === minCount);
 
-  return deck.map((student, i) => ({
-    student_id: student.id,
-    weekday: dayOrder[i % 5],
-    display_order: Math.floor(i / 5),
-  }));
+    // Seimbangkan gender: pilih dari gender yang sedang tertinggal.
+    const preferred: "L" | "P" | null =
+      teamL < teamP ? "L" : teamP < teamL ? "P" : null;
+    if (preferred) {
+      const balanced = tier.filter((c) => c.gender === preferred);
+      if (balanced.length > 0) tier = balanced;
+    }
+
+    const chosen = tier[Math.floor(rng() * tier.length)];
+    teamIds.push(chosen.id);
+    if (chosen.gender === "L") teamL++;
+    if (chosen.gender === "P") teamP++;
+    pool = pool.filter((c) => c.id !== chosen.id);
+  }
+
+  return teamIds;
+}
+
+/** Ukuran tim default: kelas dibagi 5 hari sekolah, dibulatkan ke atas. */
+export function defaultTeamSize(activeStudents: number): number {
+  if (activeStudents <= 0) return 0;
+  return Math.max(1, Math.ceil(activeStudents / 5));
 }

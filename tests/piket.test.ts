@@ -1,97 +1,128 @@
 import { describe, expect, it } from "vitest";
-import { generatePiket, type PiketStudent } from "@/lib/piket";
+import {
+  pickDutyTeam,
+  defaultTeamSize,
+  type DutyCandidate,
+} from "@/lib/piket";
 
-function makeClass(male: number, female: number, unknown = 0): PiketStudent[] {
-  const students: PiketStudent[] = [];
-  for (let i = 0; i < male; i++) students.push({ id: `L${i}`, gender: "L" });
-  for (let i = 0; i < female; i++) students.push({ id: `P${i}`, gender: "P" });
-  for (let i = 0; i < unknown; i++) students.push({ id: `U${i}`, gender: null });
-  return students;
+function candidate(
+  id: string,
+  historyCount: number,
+  opts: Partial<DutyCandidate> = {}
+): DutyCandidate {
+  return {
+    id,
+    gender: opts.gender ?? (Number(id.slice(1)) % 2 === 0 ? "L" : "P"),
+    historyCount,
+    servedYesterday: opts.servedYesterday ?? false,
+  };
 }
 
-function tally(slots: ReturnType<typeof generatePiket>, students: PiketStudent[]) {
-  const genderOf = new Map(students.map((s) => [s.id, s.gender]));
-  const days = new Map<number, { total: number; L: number; P: number }>();
-  for (let d = 1; d <= 5; d++) days.set(d, { total: 0, L: 0, P: 0 });
-  for (const slot of slots) {
-    const day = days.get(slot.weekday)!;
-    day.total++;
-    const g = genderOf.get(slot.student_id);
-    if (g === "L") day.L++;
-    if (g === "P") day.P++;
-  }
-  return [...days.values()];
-}
+describe("pickDutyTeam (fairness)", () => {
+  it("selects exactly `size` unique students", () => {
+    const cands = Array.from({ length: 36 }, (_, i) => candidate(`s${i}`, 0));
+    const team = pickDutyTeam(cands, 7);
+    expect(team).toHaveLength(7);
+    expect(new Set(team).size).toBe(7);
+  });
 
-describe("generatePiket", () => {
-  it("assigns every student exactly once (32 students)", () => {
-    const students = makeClass(16, 16);
-    const slots = generatePiket(students);
-    expect(slots).toHaveLength(32);
-    expect(new Set(slots.map((s) => s.student_id)).size).toBe(32);
-    for (const s of slots) {
-      expect(s.weekday).toBeGreaterThanOrEqual(1);
-      expect(s.weekday).toBeLessThanOrEqual(5);
+  it("prioritises students with the lowest historical count", () => {
+    // 5 siswa belum pernah piket, sisanya sudah 3×
+    const fresh = ["a", "b", "c", "d", "e"];
+    const cands = [
+      ...fresh.map((id) => candidate(id, 0)),
+      ...Array.from({ length: 20 }, (_, i) => candidate(`x${i}`, 3)),
+    ];
+    for (let run = 0; run < 10; run++) {
+      const team = pickDutyTeam(cands, 5);
+      expect([...team].sort()).toEqual([...fresh].sort());
     }
   });
 
-  it("32 students → day sizes 7,7,6,6,6 (max diff 1)", () => {
-    const days = tally(generatePiket(makeClass(16, 16)), makeClass(16, 16));
-    const sizes = days.map((d) => d.total).sort();
-    expect(sizes).toEqual([6, 6, 6, 7, 7]);
-  });
-
-  it("balances gender per day (16L/16P → diff ≤ 1 each day)", () => {
-    for (let run = 0; run < 20; run++) {
-      const students = makeClass(16, 16);
-      const days = tally(generatePiket(students), students);
-      for (const d of days) {
-        expect(Math.abs(d.L - d.P)).toBeLessThanOrEqual(1);
+  it("fills remaining slots from the next-lowest tier", () => {
+    const cands = [
+      candidate("zero1", 0),
+      candidate("zero2", 0),
+      ...Array.from({ length: 10 }, (_, i) => candidate(`one${i}`, 1)),
+      ...Array.from({ length: 10 }, (_, i) => candidate(`five${i}`, 5)),
+    ];
+    for (let run = 0; run < 10; run++) {
+      const team = pickDutyTeam(cands, 6);
+      expect(team).toContain("zero1");
+      expect(team).toContain("zero2");
+      // sisanya harus dari tier count=1, bukan count=5
+      for (const id of team) {
+        expect(id.startsWith("five")).toBe(false);
       }
     }
   });
 
-  it("keeps gender reasonably balanced with uneven groups (18L/14P)", () => {
-    for (let run = 0; run < 20; run++) {
-      const students = makeClass(18, 14);
-      const days = tally(generatePiket(students), students);
-      for (const d of days) {
-        expect(Math.abs(d.L - d.P)).toBeLessThanOrEqual(2);
-        expect([6, 7]).toContain(d.total);
-      }
+  it("avoids yesterday's crew when enough others exist", () => {
+    const yesterday = ["y1", "y2", "y3"];
+    const cands = [
+      ...yesterday.map((id) => candidate(id, 0, { servedYesterday: true })),
+      ...Array.from({ length: 20 }, (_, i) => candidate(`f${i}`, 0)),
+    ];
+    for (let run = 0; run < 10; run++) {
+      const team = pickDutyTeam(cands, 7);
+      for (const id of yesterday) expect(team).not.toContain(id);
     }
   });
 
-  it("handles students without gender and odd totals", () => {
-    const students = makeClass(10, 9, 4); // 23 students
-    const slots = generatePiket(students);
-    expect(slots).toHaveLength(23);
-    const sizes = tally(slots, students)
-      .map((d) => d.total)
-      .sort();
-    expect(sizes).toEqual([4, 4, 5, 5, 5]);
+  it("falls back to yesterday's crew when the class is small", () => {
+    const cands = [
+      candidate("y1", 0, { servedYesterday: true }),
+      candidate("y2", 0, { servedYesterday: true }),
+      candidate("f1", 0),
+      candidate("f2", 0),
+    ];
+    const team = pickDutyTeam(cands, 4);
+    expect(team).toHaveLength(4);
   });
 
-  it("produces different schedules on different runs (randomness)", () => {
-    const students = makeClass(16, 16);
-    const a = JSON.stringify(generatePiket(students));
-    const b = JSON.stringify(generatePiket(students));
-    const c = JSON.stringify(generatePiket(students));
-    expect(a === b && b === c).toBe(false);
+  it("balances gender within equal-load tiers", () => {
+    const cands = [
+      ...Array.from({ length: 18 }, (_, i) =>
+        candidate(`l${i}`, 0, { gender: "L" })
+      ),
+      ...Array.from({ length: 18 }, (_, i) =>
+        candidate(`p${i}`, 0, { gender: "P" })
+      ),
+    ];
+    for (let run = 0; run < 10; run++) {
+      const team = pickDutyTeam(cands, 7);
+      const l = team.filter((id) => id.startsWith("l")).length;
+      const p = team.filter((id) => id.startsWith("p")).length;
+      expect(Math.abs(l - p)).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("caps at the number of available candidates", () => {
+    const cands = [candidate("a", 0), candidate("b", 2)];
+    expect(pickDutyTeam(cands, 7)).toHaveLength(2);
   });
 
   it("is deterministic with a seeded rng", () => {
-    let seed = 42;
-    const rng = () => {
-      seed = (seed * 1103515245 + 12345) % 2147483648;
-      return seed / 2147483648;
+    const makeRng = () => {
+      let seed = 42;
+      return () => {
+        seed = (seed * 1103515245 + 12345) % 2147483648;
+        return seed / 2147483648;
+      };
     };
-    let seed2 = 42;
-    const rng2 = () => {
-      seed2 = (seed2 * 1103515245 + 12345) % 2147483648;
-      return seed2 / 2147483648;
-    };
-    const students = makeClass(16, 16);
-    expect(generatePiket(students, rng)).toEqual(generatePiket(students, rng2));
+    const cands = Array.from({ length: 30 }, (_, i) => candidate(`s${i}`, i % 3));
+    expect(pickDutyTeam(cands, 7, makeRng())).toEqual(
+      pickDutyTeam(cands, 7, makeRng())
+    );
+  });
+});
+
+describe("defaultTeamSize", () => {
+  it("splits the class across 5 school days", () => {
+    expect(defaultTeamSize(32)).toBe(7);
+    expect(defaultTeamSize(34)).toBe(7);
+    expect(defaultTeamSize(36)).toBe(8);
+    expect(defaultTeamSize(3)).toBe(1);
+    expect(defaultTeamSize(0)).toBe(0);
   });
 });

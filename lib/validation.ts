@@ -84,10 +84,8 @@ export const createStudentSchema = z.object({
     .max(40, "Maksimal 40 karakter."),
   username: usernameField,
   gender: genderEnum,
-  password: z
-    .string()
-    .min(8, "Password minimal 8 karakter.")
-    .max(72, "Password maksimal 72 karakter."),
+  // Password TIDAK diinput siapa pun — sistem membuat password
+  // sementara yang tampil satu kali, lalu siswa menggantinya sendiri.
 });
 
 export const setGenderSchema = z.object({
@@ -95,12 +93,62 @@ export const setGenderSchema = z.object({
   gender: genderEnum,
 });
 
+export const setStatusSchema = z.object({
+  user_id: z.string().uuid(),
+  status: z.enum(["active", "inactive"]),
+});
+
+export const changePasswordSchema = z
+  .object({
+    password: z
+      .string()
+      .min(8, "Password minimal 8 karakter.")
+      .max(72, "Password maksimal 72 karakter."),
+    confirm: z.string(),
+  })
+  .refine((v) => v.password === v.confirm, {
+    message: "Ulangi password dengan sama persis.",
+    path: ["confirm"],
+  });
+
+// ── Tanya Wali: catatan tindak lanjut (teacher-only) ─────────
+export const requestNoteSchema = z.object({
+  request_id: z.string().uuid(),
+  teacher_note: optionalText(4000),
+  follow_up_at: z
+    .string()
+    .optional()
+    .transform((v) => (v ? v : null)),
+  closed_reason: optionalText(500),
+});
+
+// ── Piket harian ─────────────────────────────────────────────
+const dateField = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Pilih tanggal yang valid.");
+
+export const generatePiketSchema = z.object({
+  duty_date: dateField,
+  team_size: z.coerce.number().int().min(1, "Minimal 1 petugas.").max(20),
+  confirm_overwrite: z
+    .union([z.boolean(), z.enum(["true", "false"])])
+    .transform((v) => v === true || v === "true")
+    .default(false),
+});
+
+export const overridePiketSchema = z.object({
+  assignment_id: z.string().uuid(),
+  new_student_id: z.string().uuid(),
+});
+
+export const exclusionSchema = z.object({
+  student_id: z.string().uuid(),
+  exclusion_date: dateField,
+  reason: optionalText(200),
+});
+
 export const resetPasswordSchema = z.object({
   user_id: z.string().uuid(),
-  password: z
-    .string()
-    .min(8, "Password minimal 8 karakter.")
-    .max(72, "Password maksimal 72 karakter."),
 });
 
 // ── Profile ──────────────────────────────────────────────────

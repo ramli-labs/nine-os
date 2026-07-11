@@ -26,13 +26,16 @@ export default async function OnboardingPage() {
           Halo, {profile.nickname || profile.full_name}.
         </h1>
         <p className="mt-1 text-sm leading-relaxed text-navy-600">
-          Sembilan pertanyaan singkat supaya wali kelas bisa mendampingimu
-          sebagai <em>kamu</em> — bukan sekadar nama di absensi. Jawabanmu
-          hanya dibaca wali kelas.
+          Empat langkah singkat supaya wali kelas bisa mendampingimu sebagai{" "}
+          <em>kamu</em> — bukan sekadar nama di absensi. Jawabanmu hanya
+          dibaca wali kelas, dan setiap langkah tersimpan otomatis.
         </p>
       </div>
 
-      <KenaliSayaForm existing={data as StudentProfile | null} />
+      <KenaliSayaForm
+        existing={data as StudentProfile | null}
+        currentNickname={profile.nickname}
+      />
     </div>
   );
 }

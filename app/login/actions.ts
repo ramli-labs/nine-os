@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { loginSchema } from "@/lib/validation";
 import { identifierToEmail } from "@/lib/constants";
 import { roleHome } from "@/lib/auth";
@@ -43,7 +44,7 @@ export async function signIn(
     };
   }
 
-  // Role comes from the database (RLS-protected) — never from the client.
+  // Role & status come from the database (RLS) — never from the client.
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -51,9 +52,30 @@ export async function signIn(
   if (user) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, status, must_change_password")
       .eq("id", user.id)
       .single();
+
+    if (profile?.status === "inactive") {
+      await supabase.auth.signOut();
+      return {
+        ok: false,
+        error: "Akun ini sedang nonaktif. Hubungi wali kelas, ya.",
+      };
+    }
+
+    // Catat last_login_at (server-side; tidak menghalangi login bila gagal).
+    const admin = createAdminClient();
+    if (admin) {
+      await admin
+        .from("profiles")
+        .update({ last_login_at: new Date().toISOString() })
+        .eq("id", user.id);
+    }
+
+    if (profile?.must_change_password) {
+      redirect("/change-password");
+    }
     if (profile) destination = roleHome(profile.role);
   }
 

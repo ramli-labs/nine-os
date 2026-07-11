@@ -6,10 +6,11 @@ import { requireTeacher } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTimeID } from "@/lib/date";
 import { CATEGORY_LABELS } from "@/lib/labels";
-import type { WaliRequest } from "@/lib/types";
+import type { WaliRequest, WaliRequestNote } from "@/lib/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge, StatusBadge, UrgencyBadge } from "@/components/ui/badge";
 import { StatusForm } from "./status-form";
+import { NoteForm } from "./note-form";
 
 export const metadata: Metadata = { title: "Detail Pesan" };
 
@@ -26,14 +27,22 @@ export default async function RequestDetailPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const { data } = await supabase
-    .from("wali_requests")
-    .select("*, profiles(id, nickname, full_name)")
-    .eq("id", id)
-    .maybeSingle();
+  const [requestRes, noteRes] = await Promise.all([
+    supabase
+      .from("wali_requests")
+      .select("*, profiles(id, nickname, full_name)")
+      .eq("id", id)
+      .maybeSingle(),
+    supabase
+      .from("wali_request_notes")
+      .select("*")
+      .eq("request_id", id)
+      .maybeSingle(),
+  ]);
 
-  const request = data as RequestWithStudent | null;
+  const request = requestRes.data as RequestWithStudent | null;
   if (!request) notFound();
+  const note = noteRes.data as WaliRequestNote | null;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -79,6 +88,16 @@ export default async function RequestDetailPage({
       <Card>
         <CardContent>
           <StatusForm requestId={request.id} current={request.status} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          <NoteForm
+            requestId={request.id}
+            status={request.status}
+            existing={note}
+          />
         </CardContent>
       </Card>
 

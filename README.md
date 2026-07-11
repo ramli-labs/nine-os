@@ -67,8 +67,10 @@ npm run test:rls    # spin-up Postgres lokal → migrasi → seed → 24 tes RLS
 
 ## Keterbatasan yang diketahui (MVP)
 
-- Tidak ada pemulihan password mandiri untuk siswa (by design, karena tanpa email) — reset hanya lewat wali kelas. Konsekuensi: kalau akun wali kelas sendiri terkunci, pulihkan lewat dashboard Supabase.
+- Tidak ada pemulihan password mandiri untuk siswa (by design, karena tanpa email) — reset hanya lewat wali kelas (menghasilkan password sementara baru + wajib ganti saat login). Kalau akun wali kelas sendiri terkunci, pulihkan lewat dashboard Supabase.
 - Pembuatan akun satu per satu (belum ada import CSV massal untuk 30+ siswa sekaligus).
+- Audit log tercatat di database (`audit_logs`, teacher-only) tetapi belum punya halaman UI — baca lewat Supabase Table Editor bila diperlukan.
+- Menonaktifkan akun memblokir login & token baru; access token yang sedang aktif bisa bertahan sampai ±1 jam sebelum benar-benar terputus (guard server-side memutus lebih cepat di setiap kunjungan halaman).
 - “Fokus Minggu Ini” di beranda siswa = pengumuman terpublikasi terbaru (konvensi, bukan field terpisah).
 - Siswa melihat denyut minggu berjalan saja (riwayat penuh ada di sisi teacher).
 - Pengujian RLS dilakukan pada Postgres lokal dengan shim skema auth (bukan instance Supabase live) — perilaku policy identik, tetapi verifikasi akhir di Supabase tetap disarankan (checklist di README_SETUP.md).

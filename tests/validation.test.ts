@@ -9,6 +9,9 @@ import {
   eventSchema,
   createStudentSchema,
   loginSchema,
+  changePasswordSchema,
+  generatePiketSchema,
+  requestNoteSchema,
 } from "@/lib/validation";
 import { identifierToEmail, displayUsername } from "@/lib/constants";
 
@@ -18,7 +21,6 @@ describe("account provisioning (username + password)", () => {
     nickname: "Arka",
     username: "arka.pratama",
     gender: "L",
-    password: "rahasia-kuat-9",
   };
 
   it("requires a gender (needed for piket balancing)", () => {
@@ -53,10 +55,25 @@ describe("account provisioning (username + password)", () => {
     if (r.success) expect(r.data.identifier).toBe("arka");
   });
 
-  it("rejects short passwords", () => {
+  it("has no password field — temp passwords are system-generated", () => {
+    const r = createStudentSchema.safeParse({ ...base, password: "abc" });
+    expect(r.success).toBe(true);
+    if (r.success) expect("password" in r.data).toBe(false);
+  });
+
+  it("changePasswordSchema enforces length and confirmation", () => {
     expect(
-      createStudentSchema.safeParse({ ...base, password: "1234567" }).success
+      changePasswordSchema.safeParse({ password: "1234567", confirm: "1234567" })
+        .success
     ).toBe(false);
+    expect(
+      changePasswordSchema.safeParse({ password: "12345678", confirm: "different" })
+        .success
+    ).toBe(false);
+    expect(
+      changePasswordSchema.safeParse({ password: "12345678", confirm: "12345678" })
+        .success
+    ).toBe(true);
   });
 
   it("maps usernames to the synthetic domain, passes emails through", () => {
@@ -250,6 +267,57 @@ describe("announcementSchema", () => {
     });
     expect(r.success).toBe(true);
     if (r.success) expect(r.data.is_published).toBe(true);
+  });
+});
+
+describe("generatePiketSchema", () => {
+  it("validates date format, size bounds, and overwrite flag", () => {
+    expect(
+      generatePiketSchema.safeParse({ duty_date: "13-07-2026", team_size: "7" })
+        .success
+    ).toBe(false);
+    expect(
+      generatePiketSchema.safeParse({ duty_date: "2026-07-13", team_size: "0" })
+        .success
+    ).toBe(false);
+    const r = generatePiketSchema.safeParse({
+      duty_date: "2026-07-13",
+      team_size: "7",
+      confirm_overwrite: "true",
+    });
+    expect(r.success).toBe(true);
+    if (r.success) {
+      expect(r.data.team_size).toBe(7);
+      expect(r.data.confirm_overwrite).toBe(true);
+    }
+  });
+
+  it("defaults confirm_overwrite to false", () => {
+    const r = generatePiketSchema.safeParse({
+      duty_date: "2026-07-13",
+      team_size: "6",
+    });
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.confirm_overwrite).toBe(false);
+  });
+});
+
+describe("requestNoteSchema", () => {
+  it("accepts empty note fields and validates the request id", () => {
+    expect(
+      requestNoteSchema.safeParse({ request_id: "bukan-uuid" }).success
+    ).toBe(false);
+    const r = requestNoteSchema.safeParse({
+      request_id: "3e0c1a1e-6dc9-4b7a-a37d-1c4b30f6a111",
+      teacher_note: "",
+      follow_up_at: "",
+      closed_reason: "",
+    });
+    expect(r.success).toBe(true);
+    if (r.success) {
+      expect(r.data.teacher_note).toBeNull();
+      expect(r.data.follow_up_at).toBeNull();
+    }
   });
 });
 

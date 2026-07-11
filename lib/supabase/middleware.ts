@@ -14,6 +14,8 @@ const PROTECTED_PREFIXES = [
   "/profile",
   "/onboarding",
   "/teacher",
+  "/change-password",
+  "/piket",
 ];
 
 export async function updateSession(request: NextRequest) {

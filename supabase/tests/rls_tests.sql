@@ -219,26 +219,58 @@ end $$;
 reset role;
 
 -- ════════════════════════════════════════════════════════════
--- PIKET (migration 0003)
+-- PIKET HARIAN + AUDIT LOG + REQUEST NOTES (migration 0006)
 -- ════════════════════════════════════════════════════════════
 set role authenticated;
 set request.jwt.claims to '{"sub":"d0000000-0000-4000-8000-000000000001","role":"authenticated"}';
 
 do $$
-declare n int;
+declare n int; sched uuid; req uuid;
 begin
-  -- 25. teacher creates piket assignments
-  insert into public.piket_assignments (student_id, weekday, display_order) values
-    ('d0000000-0000-4000-8000-000000000002', 1, 0),
-    ('d0000000-0000-4000-8000-000000000003', 2, 0);
-  raise notice 'PASS 25: teacher creates piket schedule';
+  -- 25. teacher creates a daily schedule + assignments
+  insert into public.piket_schedules (duty_date, generated_by)
+  values (current_date, 'd0000000-0000-4000-8000-000000000001')
+  returning id into sched;
+  insert into public.piket_assignments (schedule_id, student_id) values
+    (sched, 'd0000000-0000-4000-8000-000000000002'),
+    (sched, 'd0000000-0000-4000-8000-000000000003');
+  raise notice 'PASS 25: teacher creates daily piket schedule';
 
-  -- 26. teacher can update student gender (but not role — checked in test 9)
+  -- 26. teacher can update student gender (role stays locked — test 9)
   update public.profiles set gender = 'L'
     where id = 'd0000000-0000-4000-8000-000000000002';
   get diagnostics n = row_count;
   if n <> 1 then raise exception 'FAIL 26: teacher could not set student gender'; end if;
   raise notice 'PASS 26: teacher sets student gender';
+
+  -- 26b. teacher manages exclusions
+  insert into public.piket_exclusions (student_id, exclusion_date, reason, created_by)
+  values ('d0000000-0000-4000-8000-000000000004', current_date, 'sakit',
+          'd0000000-0000-4000-8000-000000000001');
+  raise notice 'PASS 26b: teacher manages exclusions';
+
+  -- 26c. teacher writes an audit log entry (as self)
+  insert into public.audit_logs (actor_id, action, target_type, target_id)
+  values ('d0000000-0000-4000-8000-000000000001', 'piket.generate',
+          'piket_schedule', sched);
+  select count(*) into n from public.audit_logs;
+  if n < 1 then raise exception 'FAIL 26c: teacher cannot read audit logs'; end if;
+  raise notice 'PASS 26c: audit log insert + teacher read';
+
+  -- 26d. teacher cannot forge audit actor_id
+  begin
+    insert into public.audit_logs (actor_id, action, target_type)
+    values ('d0000000-0000-4000-8000-000000000002', 'fake', 'profile');
+    raise exception 'FAIL 26d: audit actor_id can be forged';
+  exception when insufficient_privilege then
+    raise notice 'PASS 26d: audit actor_id cannot be forged';
+  end;
+
+  -- 26e. teacher writes a follow-up note on a request
+  select id into req from public.wali_requests limit 1;
+  insert into public.wali_request_notes (request_id, teacher_note, updated_by)
+  values (req, 'Sudah kuajak bicara saat istirahat.', 'd0000000-0000-4000-8000-000000000001');
+  raise notice 'PASS 26e: teacher writes follow-up note';
 end $$;
 
 reset role;
@@ -250,17 +282,47 @@ set request.jwt.claims to '{"sub":"d0000000-0000-4000-8000-000000000002","role":
 do $$
 declare n int;
 begin
-  -- 27. students read the whole schedule (class-visible)
+  -- 27. students read the schedule (class-visible)
   select count(*) into n from public.piket_assignments;
   if n < 2 then raise exception 'FAIL 27: student sees % piket rows (expected 2)', n; end if;
-  raise notice 'PASS 27: students can read the schedule';
+  raise notice 'PASS 27: students can read the daily schedule';
 
-  -- 28. students cannot write the schedule
+  -- 28. students cannot write assignments
   begin
-    insert into public.piket_assignments (student_id, weekday) values (auth.uid(), 5);
+    insert into public.piket_assignments (schedule_id, student_id)
+    select id, auth.uid() from public.piket_schedules limit 1;
     raise exception 'FAIL 28: student inserted a piket assignment';
   exception when insufficient_privilege or unique_violation then
     raise notice 'PASS 28: students cannot modify the schedule';
+  end;
+
+  -- 28b. students cannot mark completed / edit assignments
+  update public.piket_assignments set completed = true;
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL 28b: student edited assignments'; end if;
+  raise notice 'PASS 28b: students cannot edit assignments';
+
+  -- 28c. students cannot see exclusions (reasons can be sensitive)
+  select count(*) into n from public.piket_exclusions;
+  if n <> 0 then raise exception 'FAIL 28c: student sees % exclusions', n; end if;
+  raise notice 'PASS 28c: exclusions hidden from students';
+
+  -- 28d. students cannot read audit logs
+  select count(*) into n from public.audit_logs;
+  if n <> 0 then raise exception 'FAIL 28d: student sees % audit logs', n; end if;
+  raise notice 'PASS 28d: audit logs hidden from students';
+
+  -- 28e. students cannot read teacher follow-up notes (their own request!)
+  select count(*) into n from public.wali_request_notes;
+  if n <> 0 then raise exception 'FAIL 28e: student sees % teacher notes', n; end if;
+  raise notice 'PASS 28e: teacher notes hidden from students';
+
+  -- 28f. students cannot reactivate their own account status
+  begin
+    update public.profiles set status = 'active' where id = auth.uid();
+    raise exception 'FAIL 28f: student updated own status column';
+  exception when insufficient_privilege then
+    raise notice 'PASS 28f: account status locked from students';
   end;
 end $$;
 
@@ -277,6 +339,12 @@ begin
     raise exception 'FAIL 29: anon can read piket schedule';
   exception when insufficient_privilege then
     raise notice 'PASS 29: piket schedule hidden from public';
+  end;
+  begin
+    perform count(*) from public.audit_logs;
+    raise exception 'FAIL 29b: anon can read audit logs';
+  exception when insufficient_privilege then
+    raise notice 'PASS 29b: audit logs hidden from public';
   end;
 end $$;
 

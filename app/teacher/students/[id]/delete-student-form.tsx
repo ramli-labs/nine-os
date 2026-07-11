@@ -40,8 +40,9 @@ export function DeleteStudentForm({
               </p>
               <p className="mt-0.5 text-xs leading-relaxed text-navy-500">
                 Permanen: profil, denyut, pesan, target, kapsul waktu, dan slot
-                piket ikut terhapus. Untuk akun dummy atau pergantian tahun
-                ajaran.
+                piket ikut terhapus. Hanya untuk akun dummy/uji coba — untuk
+                siswa sungguhan, gunakan <strong>Nonaktifkan akun</strong> agar
+                datanya tetap tersimpan.
               </p>
             </div>
 

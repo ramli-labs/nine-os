@@ -5,6 +5,7 @@ import { requireTeacher } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { displayUsername } from "@/lib/constants";
 import type { Profile } from "@/lib/types";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/feedback";
@@ -70,6 +71,11 @@ export default async function StudentsPage() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-navy-900">
                       {s.full_name || s.nickname}
+                      {s.status === "inactive" ? (
+                        <Badge tone="red" className="ml-2">
+                          Nonaktif
+                        </Badge>
+                      ) : null}
                     </p>
                     <p className="truncate text-xs text-navy-500">
                       @{displayUsername(s.email)}

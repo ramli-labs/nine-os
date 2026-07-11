@@ -12,15 +12,15 @@ import {
 } from "lucide-react";
 import { requireStudent } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { currentWeekStart, formatDateTimeID, greetingID } from "@/lib/date";
+import {
+  currentWeekStart,
+  formatDateTimeID,
+  formatPlainDateID,
+  greetingID,
+  jakartaDateString,
+} from "@/lib/date";
 import { feelingDisplay } from "@/lib/labels";
-import { WEEKDAY_LABELS } from "@/lib/piket";
-import type {
-  Announcement,
-  ClassEvent,
-  PiketAssignment,
-  WeeklyPulse,
-} from "@/lib/types";
+import type { Announcement, ClassEvent, WeeklyPulse } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/feedback";
 
@@ -84,10 +84,11 @@ export default async function DashboardPage() {
         .eq("user_id", profile.id)
         .maybeSingle(),
       supabase
-        .from("piket_assignments")
-        .select("*")
-        .eq("student_id", profile.id)
-        .maybeSingle(),
+        .from("piket_schedules")
+        .select("id, duty_date")
+        .gte("duty_date", jakartaDateString())
+        .order("duty_date", { ascending: true })
+        .limit(5),
     ]);
 
   const pulse = pulseRes.data as WeeklyPulse | null;
@@ -95,7 +96,27 @@ export default async function DashboardPage() {
   const announcements = (announcementsRes.data ?? []) as Announcement[];
   const hasOnboarded = Boolean(onboardingRes.data);
   const focus = announcements[0] ?? null;
-  const piket = piketRes.data as PiketAssignment | null;
+
+  // Giliran piketku berikutnya (jadwal harian).
+  const upcomingSchedules = (piketRes.data ?? []) as {
+    id: string;
+    duty_date: string;
+  }[];
+  let myDutyDate: string | null = null;
+  if (upcomingSchedules.length > 0) {
+    const { data: myAssignments } = await supabase
+      .from("piket_assignments")
+      .select("schedule_id")
+      .eq("student_id", profile.id)
+      .in(
+        "schedule_id",
+        upcomingSchedules.map((s) => s.id)
+      );
+    const mine = new Set((myAssignments ?? []).map((a) => a.schedule_id));
+    myDutyDate =
+      upcomingSchedules.find((s) => mine.has(s.id))?.duty_date ?? null;
+  }
+  const today = jakartaDateString();
 
   return (
     <div className="space-y-6">
@@ -105,17 +126,17 @@ export default async function DashboardPage() {
         </h1>
         <p className="mt-1 text-sm text-navy-600">
           Selamat datang di ruang kelasmu.
-          {piket ? (
+          {myDutyDate ? (
             <>
               {" "}
-              Hari piketmu:{" "}
               <Link
                 href="/piket"
                 className="font-medium text-navy-900 underline-offset-2 hover:underline"
               >
-                {WEEKDAY_LABELS[piket.weekday]}
+                {myDutyDate === today
+                  ? "Hari ini kamu bertugas piket."
+                  : `Piketmu berikutnya: ${formatPlainDateID(myDutyDate)}.`}
               </Link>
-              .
             </>
           ) : null}
         </p>

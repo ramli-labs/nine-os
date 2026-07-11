@@ -51,6 +51,54 @@ export function ErrorNote({ children }: { children: React.ReactNode }) {
   );
 }
 
+/**
+ * One-time secret display (temporary password). Shown exactly once —
+ * the value only lives in this render, never in the database.
+ */
+export function OneTimeSecret({
+  secret,
+  message,
+}: {
+  secret: string;
+  message?: string;
+}) {
+  const [copied, setCopied] = React.useState(false);
+  return (
+    <div
+      role="status"
+      className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3"
+    >
+      {message ? (
+        <p className="text-sm leading-relaxed text-amber-900">{message}</p>
+      ) : null}
+      <div className="mt-2 flex items-center gap-2">
+        <code className="rounded-lg bg-white px-3 py-2 font-mono text-lg tracking-wider text-navy-950 ring-1 ring-amber-200">
+          {secret}
+        </code>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(secret);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 2000);
+            } catch {
+              /* clipboard unavailable — user copies manually */
+            }
+          }}
+        >
+          {copied ? "Tersalin ✓" : "Salin"}
+        </Button>
+      </div>
+      <p className="mt-2 text-xs text-amber-800">
+        Catat sekarang — password ini tidak akan ditampilkan lagi.
+      </p>
+    </div>
+  );
+}
+
 export function EmptyState({
   title,
   description,
