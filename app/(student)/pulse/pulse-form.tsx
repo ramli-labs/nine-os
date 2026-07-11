@@ -5,7 +5,13 @@ import { cn } from "@/lib/utils";
 import { submitPulse } from "./actions";
 import { CATEGORY_LABELS, FEELING_LABELS } from "@/lib/labels";
 import type { ActionResult, WeeklyPulse } from "@/lib/types";
-import { Label, Select, Textarea, FieldError } from "@/components/ui/field";
+import {
+  Input,
+  Label,
+  Select,
+  Textarea,
+  FieldError,
+} from "@/components/ui/field";
 import {
   SubmitButton,
   SuccessNote,
@@ -128,6 +134,21 @@ export function PulseForm({ existing }: { existing: WeeklyPulse | null }) {
         </div>
         <input type="hidden" name="feeling" value={feeling ?? ""} />
         <FieldError message={fe?.feeling?.[0]} />
+        {feeling === "lainnya" ? (
+          <div className="mt-3">
+            <Label htmlFor="feeling_detail">Perasaan apa itu?</Label>
+            <Input
+              id="feeling_detail"
+              name="feeling_detail"
+              maxLength={100}
+              required
+              placeholder="Tulis dengan katamu sendiri…"
+              defaultValue={existing?.feeling_detail ?? ""}
+              className="mt-1.5"
+            />
+            <FieldError message={fe?.feeling_detail?.[0]} />
+          </div>
+        ) : null}
       </div>
 
       <div>

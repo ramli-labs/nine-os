@@ -77,6 +77,7 @@ export interface WeeklyPulse {
   energy_level: number;
   pressure_level: number;
   feeling: Feeling;
+  feeling_detail: string | null;
   needs_help: boolean;
   help_category: RequestCategory | null;
   note: string | null;

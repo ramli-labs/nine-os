@@ -5,7 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { requireTeacher } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateShortID, formatDateTimeID, formatPlainDateID } from "@/lib/date";
-import { CATEGORY_LABELS, FEELING_LABELS } from "@/lib/labels";
+import { CATEGORY_LABELS, feelingDisplay } from "@/lib/labels";
 import type {
   Goals,
   Profile,
@@ -189,7 +189,7 @@ export default async function StudentDetailPage({
                       <span className="w-24 shrink-0 text-xs text-navy-500">
                         {formatPlainDateID(p.week_start)}
                       </span>
-                      <Badge>{FEELING_LABELS[p.feeling]}</Badge>
+                      <Badge>{feelingDisplay(p.feeling, p.feeling_detail)}</Badge>
                       <span className="text-xs text-navy-600">
                         Energi {p.energy_level}/5 · Tekanan {p.pressure_level}/5
                       </span>

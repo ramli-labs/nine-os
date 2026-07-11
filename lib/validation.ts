@@ -144,6 +144,7 @@ export const pulseSchema = z
       .min(1, "Pilih nilai 1–5.")
       .max(5, "Pilih nilai 1–5."),
     feeling: feelingEnum,
+    feeling_detail: optionalText(100),
     needs_help: z
       .union([z.boolean(), z.enum(["true", "false"])])
       .transform((v) => v === true || v === "true"),
@@ -154,7 +155,13 @@ export const pulseSchema = z
     ...v,
     // category only meaningful when help is requested
     help_category: v.needs_help ? (v.help_category ?? "other") : null,
-  }));
+    // free-text feeling only meaningful for "lainnya"
+    feeling_detail: v.feeling === "lainnya" ? v.feeling_detail : null,
+  }))
+  .refine((v) => v.feeling !== "lainnya" || Boolean(v.feeling_detail), {
+    message: "Tulis perasaanmu di sini.",
+    path: ["feeling_detail"],
+  });
 
 // ── Tanya Wali ───────────────────────────────────────────────
 export const waliRequestSchema = z.object({

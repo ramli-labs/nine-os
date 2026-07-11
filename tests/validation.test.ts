@@ -116,6 +116,29 @@ describe("pulseSchema", () => {
     expect(r.success).toBe(true);
     if (r.success) expect(r.data.help_category).toBe("other");
   });
+
+  it("requires a description when feeling is 'lainnya'", () => {
+    expect(
+      pulseSchema.safeParse({ ...base, feeling: "lainnya" }).success
+    ).toBe(false);
+    const r = pulseSchema.safeParse({
+      ...base,
+      feeling: "lainnya",
+      feeling_detail: "deg-degan mau ujian",
+    });
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.feeling_detail).toBe("deg-degan mau ujian");
+  });
+
+  it("drops feeling_detail for named feelings", () => {
+    const r = pulseSchema.safeParse({
+      ...base,
+      feeling: "baik",
+      feeling_detail: "harusnya diabaikan",
+    });
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.feeling_detail).toBeNull();
+  });
 });
 
 describe("waliRequestSchema", () => {

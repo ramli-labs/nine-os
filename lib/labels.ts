@@ -38,6 +38,15 @@ export const FEELING_LABELS: Record<Feeling, string> = {
   lainnya: "Lainnya",
 };
 
+/** "Lainnya" shows the student's own words when provided. */
+export function feelingDisplay(
+  feeling: Feeling,
+  detail?: string | null
+): string {
+  if (feeling === "lainnya" && detail) return `Lainnya: ${detail}`;
+  return FEELING_LABELS[feeling];
+}
+
 export const RESOURCE_CATEGORY_LABELS: Record<ResourceCategory, string> = {
   study: "Cara Belajar",
   high_school: "Menuju SMA",

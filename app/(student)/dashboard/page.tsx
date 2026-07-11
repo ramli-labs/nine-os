@@ -13,7 +13,7 @@ import {
 import { requireStudent } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { currentWeekStart, formatDateTimeID, greetingID } from "@/lib/date";
-import { FEELING_LABELS } from "@/lib/labels";
+import { feelingDisplay } from "@/lib/labels";
 import { WEEKDAY_LABELS } from "@/lib/piket";
 import type {
   Announcement,
@@ -212,7 +212,7 @@ export default async function DashboardPage() {
                 <p>
                   Denyut minggu ini sudah terisi — perasaan dominan:{" "}
                   <span className="font-medium text-navy-900">
-                    {FEELING_LABELS[pulse.feeling]}
+                    {feelingDisplay(pulse.feeling, pulse.feeling_detail)}
                   </span>
                   .
                 </p>

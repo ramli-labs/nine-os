@@ -21,6 +21,7 @@ export async function submitPulse(
     energy_level: formData.get("energy_level"),
     pressure_level: formData.get("pressure_level"),
     feeling: formData.get("feeling"),
+    feeling_detail: formData.get("feeling_detail") ?? undefined,
     needs_help: formData.get("needs_help") ?? "false",
     help_category: formData.get("help_category") || null,
     note: formData.get("note") ?? undefined,

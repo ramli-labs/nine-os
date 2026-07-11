@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { requireTeacher } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { currentWeekStart, formatPlainDateID } from "@/lib/date";
-import { CATEGORY_LABELS, FEELING_LABELS } from "@/lib/labels";
+import { CATEGORY_LABELS, FEELING_LABELS, feelingDisplay } from "@/lib/labels";
 import type { Feeling, WeeklyPulse } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -136,7 +136,7 @@ export default async function TeacherPulsePage() {
                       <p className="text-sm font-medium text-navy-900">
                         {p.profiles?.nickname || p.profiles?.full_name || "Siswa"}
                       </p>
-                      <Badge>{FEELING_LABELS[p.feeling]}</Badge>
+                      <Badge>{feelingDisplay(p.feeling, p.feeling_detail)}</Badge>
                       {p.needs_help ? (
                         <Badge tone="amber">
                           Bantuan:{" "}
