@@ -26,8 +26,8 @@ const primaryNav = [
 
 const secondaryNav = [
   { href: "/piket", label: "Piket", icon: Sparkles },
-  { href: "/resources", label: "Materi", icon: BookOpen },
-  { href: "/class-charter", label: "Kesepakatan", icon: Handshake },
+  { href: "/materi", label: "Materi", icon: BookOpen },
+  { href: "/kesepakatan", label: "Kesepakatan", icon: Handshake },
 ];
 
 export function StudentShell({

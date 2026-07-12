@@ -13,6 +13,7 @@ const idSchema = z.string().uuid();
 function revalidate() {
   revalidatePath("/teacher/charter");
   revalidatePath("/class-charter");
+  revalidatePath("/kesepakatan");
 }
 
 export async function saveCharterItem(

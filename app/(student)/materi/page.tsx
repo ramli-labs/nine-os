@@ -3,6 +3,6 @@ import { ResourcesView } from "@/components/resources-view";
 
 export const metadata: Metadata = { title: "Materi" };
 
-export default function ResourcesPage() {
+export default function StudentResourcesPage() {
   return <ResourcesView />;
 }

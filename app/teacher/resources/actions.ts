@@ -13,6 +13,7 @@ const idSchema = z.string().uuid();
 function revalidate() {
   revalidatePath("/teacher/resources");
   revalidatePath("/resources");
+  revalidatePath("/materi");
 }
 
 export async function saveResource(

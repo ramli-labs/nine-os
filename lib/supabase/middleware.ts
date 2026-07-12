@@ -16,6 +16,8 @@ const PROTECTED_PREFIXES = [
   "/teacher",
   "/change-password",
   "/piket",
+  "/materi",
+  "/kesepakatan",
 ];
 
 export async function updateSession(request: NextRequest) {
