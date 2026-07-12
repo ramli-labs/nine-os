@@ -20,13 +20,13 @@ export default async function StudentPiketPage() {
   const supabase = await createClient();
   const today = jakartaDateString();
 
-  // Hari ini + beberapa jadwal ke depan (yang aktif).
+  // Hari ini + sisa jadwal minggu ini ke depan (yang aktif).
   const { data: schedules } = await supabase
     .from("piket_schedules")
     .select("*")
     .gte("duty_date", today)
     .order("duty_date", { ascending: true })
-    .limit(3);
+    .limit(5);
 
   const upcoming = (schedules ?? []) as PiketSchedule[];
   const ids = upcoming.map((s) => s.id);

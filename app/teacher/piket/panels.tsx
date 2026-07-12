@@ -1,56 +1,32 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { CheckCircle2, Circle, Loader2, Repeat2, Shuffle, UserMinus, X } from "lucide-react";
+import { useActionState, useEffect, useState } from "react";
+import { CheckCircle2, Circle, Loader2, Repeat2, Shuffle, X } from "lucide-react";
 import {
-  generateDailyPiket,
+  generateWeekPiket,
   overrideAssignment,
   toggleCompleted,
-  addExclusion,
-  removeExclusion,
 } from "./actions";
 import type { ActionResult } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Select } from "@/components/ui/field";
-import { SubmitButton, SuccessNote, ErrorNote } from "@/components/ui/feedback";
+import { Select } from "@/components/ui/field";
+import { SuccessNote, ErrorNote } from "@/components/ui/feedback";
 
 export interface StudentOption {
   id: string;
   name: string;
 }
 
-/* ── Pilih tanggal ─────────────────────────────────────────── */
-export function DatePicker({ date }: { date: string }) {
-  const router = useRouter();
-  return (
-    <div>
-      <Label htmlFor="piket-date">Tanggal</Label>
-      <Input
-        id="piket-date"
-        type="date"
-        defaultValue={date}
-        onChange={(e) => {
-          if (e.target.value) router.push(`/teacher/piket?date=${e.target.value}`);
-        }}
-        className="mt-1.5 max-w-48"
-      />
-    </div>
-  );
-}
-
-/* ── Generate / regenerate ─────────────────────────────────── */
-export function GeneratePanel({
-  date,
+/* ── Generate / acak ulang satu minggu ─────────────────────── */
+export function GenerateWeekPanel({
+  weekRef,
   hasSchedule,
-  defaultSize,
 }: {
-  date: string;
+  weekRef: string;
   hasSchedule: boolean;
-  defaultSize: number;
 }) {
   const [state, action, pending] = useActionState<ActionResult | null, FormData>(
-    generateDailyPiket,
+    generateWeekPiket,
     null
   );
   const [confirming, setConfirming] = useState(false);
@@ -61,25 +37,13 @@ export function GeneratePanel({
 
   return (
     <div className="space-y-3">
-      <form action={action} className="flex flex-wrap items-end gap-3">
-        <input type="hidden" name="duty_date" value={date} />
+      <form action={action} className="flex flex-wrap items-center gap-3">
+        <input type="hidden" name="week_ref" value={weekRef} />
         <input
           type="hidden"
           name="confirm_overwrite"
           value={String(hasSchedule && confirming)}
         />
-        <div>
-          <Label htmlFor="team_size">Jumlah petugas</Label>
-          <Input
-            id="team_size"
-            name="team_size"
-            type="number"
-            min={1}
-            max={20}
-            defaultValue={defaultSize}
-            className="mt-1.5 w-28"
-          />
-        </div>
 
         {!hasSchedule ? (
           <Button type="submit" disabled={pending}>
@@ -88,12 +52,12 @@ export function GeneratePanel({
             ) : (
               <Shuffle className="h-4 w-4" aria-hidden />
             )}
-            Generate piket
+            Generate 1 minggu (Senin–Jumat)
           </Button>
         ) : !confirming ? (
           <Button type="button" variant="outline" onClick={() => setConfirming(true)}>
             <Repeat2 className="h-4 w-4" aria-hidden />
-            Acak ulang…
+            Acak ulang minggu…
           </Button>
         ) : (
           <>
@@ -103,7 +67,7 @@ export function GeneratePanel({
               ) : (
                 <Repeat2 className="h-4 w-4" aria-hidden />
               )}
-              Ya, ganti jadwal tanggal ini
+              Ya, ganti jadwal minggu ini
             </Button>
             <Button type="button" variant="ghost" onClick={() => setConfirming(false)}>
               Batal
@@ -180,7 +144,7 @@ export function OverrideControl({
   return (
     <form action={action} className="flex items-center gap-2">
       <input type="hidden" name="assignment_id" value={assignmentId} />
-      <Select name="new_student_id" required className="h-9 w-44 text-sm">
+      <Select name="new_student_id" required className="h-9 w-40 text-sm">
         <option value="">Pilih pengganti…</option>
         {options.map((o) => (
           <option key={o.id} value={o.id}>
@@ -195,92 +159,5 @@ export function OverrideControl({
         <X className="h-4 w-4" aria-hidden />
       </Button>
     </form>
-  );
-}
-
-/* ── Exclusions ────────────────────────────────────────────── */
-export function ExclusionPanel({
-  date,
-  options,
-  exclusions,
-}: {
-  date: string;
-  options: StudentOption[];
-  exclusions: { id: string; name: string; reason: string | null }[];
-}) {
-  const [state, action] = useActionState<ActionResult | null, FormData>(
-    addExclusion,
-    null
-  );
-  const formRef = useRef<HTMLFormElement>(null);
-
-  useEffect(() => {
-    if (state?.ok) formRef.current?.reset();
-  }, [state]);
-
-  return (
-    <div className="space-y-3">
-      <form
-        ref={formRef}
-        action={action}
-        className="flex flex-wrap items-end gap-3"
-      >
-        <input type="hidden" name="exclusion_date" value={date} />
-        <div>
-          <Label htmlFor="excl-student">Siswa</Label>
-          <Select id="excl-student" name="student_id" required className="mt-1.5 w-48">
-            <option value="">Pilih siswa…</option>
-            {options.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div className="flex-1 basis-48">
-          <Label htmlFor="excl-reason">Alasan (opsional)</Label>
-          <Input
-            id="excl-reason"
-            name="reason"
-            maxLength={200}
-            placeholder="sakit, lomba, dispensasi…"
-            className="mt-1.5"
-          />
-        </div>
-        <SubmitButton size="sm" variant="secondary" pendingText="Menyimpan…">
-          <UserMinus className="h-4 w-4" aria-hidden />
-          Kecualikan
-        </SubmitButton>
-      </form>
-
-      {state?.ok ? <SuccessNote>{state.message}</SuccessNote> : null}
-      {state && !state.ok ? <ErrorNote>{state.error}</ErrorNote> : null}
-
-      {exclusions.length > 0 ? (
-        <ul className="space-y-1.5">
-          {exclusions.map((e) => (
-            <li
-              key={e.id}
-              className="flex items-center gap-2 rounded-lg bg-navy-50 px-3 py-1.5 text-sm text-navy-800"
-            >
-              <span className="font-medium">{e.name}</span>
-              {e.reason ? (
-                <span className="text-navy-500">— {e.reason}</span>
-              ) : null}
-              <form action={removeExclusion} className="ml-auto">
-                <input type="hidden" name="id" value={e.id} />
-                <button
-                  type="submit"
-                  aria-label={`Hapus pengecualian ${e.name}`}
-                  className="rounded p-1 text-navy-400 hover:bg-navy-100 hover:text-navy-700"
-                >
-                  <X className="h-4 w-4" aria-hidden />
-                </button>
-              </form>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </div>
   );
 }

@@ -71,3 +71,61 @@ export function defaultTeamSize(activeStudents: number): number {
   if (activeStudents <= 0) return 0;
   return Math.max(1, Math.ceil(activeStudents / 5));
 }
+
+// ── Pembagian mingguan — seluruh kelas dibagi ke Senin–Jumat ───
+// Setiap siswa mendapat TEPAT satu hari. Jumlah per hari dibuat
+// serata mungkin, dan L/P disebar merata antar hari (round-robin
+// per gender, kursor berlanjut agar total per hari tetap seimbang).
+
+export interface WeekStudent {
+  id: string;
+  gender: "L" | "P" | null;
+}
+
+function shuffleIds(ids: string[], rng: () => number): string[] {
+  const a = [...ids];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/**
+ * Bagi seluruh siswa ke `days` hari (default 5, Senin–Jumat).
+ * Mengembalikan array sepanjang `days`; indeks 0 = Senin … 4 = Jumat,
+ * masing-masing berisi daftar student id.
+ *
+ * Sifat yang dijamin:
+ *   - tiap siswa muncul tepat sekali,
+ *   - selisih jumlah petugas antar hari ≤ 1,
+ *   - jumlah L antar hari selisihnya ≤ 1 (idem untuk P).
+ */
+export function distributeAcrossWeek(
+  students: WeekStudent[],
+  rng: () => number = Math.random,
+  days = 5
+): string[][] {
+  const L = shuffleIds(
+    students.filter((s) => s.gender === "L").map((s) => s.id),
+    rng
+  );
+  const P = shuffleIds(
+    students.filter((s) => s.gender === "P").map((s) => s.id),
+    rng
+  );
+  const U = shuffleIds(
+    students.filter((s) => s.gender !== "L" && s.gender !== "P").map((s) => s.id),
+    rng
+  );
+
+  const result: string[][] = Array.from({ length: days }, () => []);
+  let cursor = 0;
+  for (const group of [L, P, U]) {
+    for (const id of group) {
+      result[cursor % days].push(id);
+      cursor++;
+    }
+  }
+  return result;
+}

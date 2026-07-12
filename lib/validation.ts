@@ -136,6 +136,15 @@ export const generatePiketSchema = z.object({
     .default(false),
 });
 
+export const generateWeekSchema = z.object({
+  // tanggal mana saja dalam minggu target; server menghitung Senin-nya
+  week_ref: dateField,
+  confirm_overwrite: z
+    .union([z.boolean(), z.enum(["true", "false"])])
+    .transform((v) => v === true || v === "true")
+    .default(false),
+});
+
 export const overridePiketSchema = z.object({
   assignment_id: z.string().uuid(),
   new_student_id: z.string().uuid(),

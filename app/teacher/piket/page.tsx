@@ -1,32 +1,33 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { requireTeacher } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { jakartaDateString, formatPlainDateID } from "@/lib/date";
-import { defaultTeamSize } from "@/lib/piket";
+import {
+  jakartaDateString,
+  weekMondayOf,
+  weekdayDates,
+  addDaysISO,
+  formatPlainDateID,
+  formatDateShortID,
+} from "@/lib/date";
 import type { Gender, PiketAssignment, PiketSchedule } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/feedback";
 import {
-  DatePicker,
-  GeneratePanel,
+  GenerateWeekPanel,
   CompletedToggle,
   OverrideControl,
-  ExclusionPanel,
   type StudentOption,
 } from "./panels";
 
-export const metadata: Metadata = { title: "Piket Harian" };
+export const metadata: Metadata = { title: "Piket Mingguan" };
+
+const WEEKDAY_LABELS = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat"];
 
 type AssignmentRow = PiketAssignment & {
   profiles: { nickname: string; full_name: string; gender: Gender | null } | null;
-};
-
-type HistoryAssignment = {
-  schedule_id: string;
-  completed: boolean;
-  profiles: { nickname: string } | null;
 };
 
 export default async function TeacherPiketPage({
@@ -38,212 +39,177 @@ export default async function TeacherPiketPage({
   const supabase = await createClient();
 
   const { date: rawDate } = await searchParams;
-  const date =
-    rawDate && /^\d{4}-\d{2}-\d{2}$/.test(rawDate)
-      ? rawDate
-      : jakartaDateString();
+  const ref =
+    rawDate && /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : jakartaDateString();
+  const monday = weekMondayOf(ref);
+  const dates = weekdayDates(monday); // [Senin … Jumat]
 
-  const [scheduleRes, studentsRes, exclusionsRes, historyRes] =
-    await Promise.all([
-      supabase
-        .from("piket_schedules")
-        .select("*")
-        .eq("duty_date", date)
-        .maybeSingle(),
-      supabase
-        .from("profiles")
-        .select("id, nickname, full_name, gender")
-        .eq("role", "student")
-        .eq("status", "active")
-        .order("full_name"),
-      supabase
-        .from("piket_exclusions")
-        .select("*, profiles!piket_exclusions_student_id_fkey(nickname, full_name)")
-        .eq("exclusion_date", date),
-      supabase
-        .from("piket_schedules")
-        .select("*")
-        .order("duty_date", { ascending: false })
-        .limit(8),
-    ]);
+  const prevWeek = addDaysISO(monday, -7);
+  const nextWeek = addDaysISO(monday, 7);
+  const thisWeek = jakartaDateString();
+  const today = jakartaDateString();
 
-  const schedule = scheduleRes.data as PiketSchedule | null;
+  const [schedulesRes, studentsRes] = await Promise.all([
+    supabase
+      .from("piket_schedules")
+      .select("*")
+      .in("duty_date", dates)
+      .order("duty_date"),
+    supabase
+      .from("profiles")
+      .select("id, nickname, full_name, gender")
+      .eq("role", "student")
+      .eq("status", "active")
+      .order("full_name"),
+  ]);
+
+  const schedules = (schedulesRes.data ?? []) as PiketSchedule[];
   const students = studentsRes.data ?? [];
-  const history = (historyRes.data ?? []) as PiketSchedule[];
+  const scheduleIds = schedules.map((s) => s.id);
 
   let assignments: AssignmentRow[] = [];
-  if (schedule) {
+  if (scheduleIds.length) {
     const { data } = await supabase
       .from("piket_assignments")
       .select("*, profiles(nickname, full_name, gender)")
-      .eq("schedule_id", schedule.id)
+      .in("schedule_id", scheduleIds)
       .order("created_at");
     assignments = (data ?? []) as AssignmentRow[];
   }
 
-  // Riwayat singkat: jumlah petugas per jadwal.
-  const historyIds = history.map((h) => h.id);
-  const historyAssignmentsRes = historyIds.length
-    ? await supabase
-        .from("piket_assignments")
-        .select("schedule_id, completed, profiles(nickname)")
-        .in("schedule_id", historyIds)
-    : { data: [] };
-  const historyAssignments = (historyAssignmentsRes.data ??
-    []) as unknown as HistoryAssignment[];
+  const hasSchedule = schedules.length > 0;
+  const scheduleByDate = new Map(schedules.map((s) => [s.duty_date, s]));
 
-  const assignedIds = new Set(assignments.map((a) => a.student_id));
-  const substituteOptions: StudentOption[] = students
-    .filter((s) => !assignedIds.has(s.id))
-    .map((s) => ({ id: s.id, name: s.nickname || s.full_name }));
-  const allOptions: StudentOption[] = students.map((s) => ({
-    id: s.id,
-    name: s.nickname || s.full_name,
-  }));
-
-  const exclusions = (exclusionsRes.data ?? []).map((e) => ({
-    id: e.id as string,
-    name:
-      (e.profiles?.nickname as string) ||
-      (e.profiles?.full_name as string) ||
-      "Siswa",
-    reason: (e.reason as string | null) ?? null,
-  }));
-
-  const doneCount = assignments.filter((a) => a.completed).length;
+  const nameOf = (s: { nickname: string; full_name: string }) =>
+    s.nickname || s.full_name;
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-navy-950">
-          Piket Harian
+          Piket Mingguan
         </h1>
         <p className="mt-1 text-sm text-navy-600">
-          Petugas dipilih adil: yang paling jarang piket didahulukan, petugas
-          kemarin dihindari, L/P seimbang. Acak hanya di antara yang setara.
+          Seluruh kelas dibagi rata ke Senin–Jumat — setiap siswa piket sekali
+          seminggu, laki-laki dan perempuan seimbang tiap hari.
         </p>
       </div>
 
       <Card>
         <CardContent className="space-y-4">
-          <div className="flex flex-wrap items-end gap-4">
-            <DatePicker date={date} />
-            <GeneratePanel
-              date={date}
-              hasSchedule={Boolean(schedule)}
-              defaultSize={defaultTeamSize(students.length)}
-            />
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-1.5">
+              <Link
+                href={`/teacher/piket?date=${prevWeek}`}
+                aria-label="Minggu sebelumnya"
+                className="tap-target rounded-lg border border-navy-200 p-2 text-navy-700 hover:bg-navy-100"
+              >
+                <ChevronLeft className="h-4 w-4" aria-hidden />
+              </Link>
+              <Link
+                href={`/teacher/piket?date=${nextWeek}`}
+                aria-label="Minggu berikutnya"
+                className="tap-target rounded-lg border border-navy-200 p-2 text-navy-700 hover:bg-navy-100"
+              >
+                <ChevronRight className="h-4 w-4" aria-hidden />
+              </Link>
+              <span className="ml-2 text-sm font-medium text-navy-900">
+                {formatDateShortID(dates[0])} – {formatDateShortID(dates[4])}
+              </span>
+              {monday !== weekMondayOf(thisWeek) ? (
+                <Link
+                  href="/teacher/piket"
+                  className="ml-2 text-xs text-navy-500 underline-offset-2 hover:underline"
+                >
+                  ke minggu ini
+                </Link>
+              ) : null}
+            </div>
+            <GenerateWeekPanel weekRef={monday} hasSchedule={hasSchedule} />
           </div>
           <p className="text-xs text-navy-400">
-            {formatPlainDateID(date)} · {students.length} siswa aktif
-            {exclusions.length > 0
-              ? ` · ${exclusions.length} dikecualikan tanggal ini`
-              : ""}
+            {students.length} siswa aktif
+            {hasSchedule ? " · jadwal minggu ini sudah dibuat" : " · belum ada jadwal minggu ini"}
           </p>
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Petugas tanggal terpilih */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-baseline justify-between gap-2">
-              <CardTitle>Petugas {formatPlainDateID(date)}</CardTitle>
-              {schedule ? (
-                <span className="text-xs text-navy-400">
-                  {doneCount}/{assignments.length} selesai
-                </span>
-              ) : null}
-            </div>
-          </CardHeader>
-          <CardContent className="pt-3">
-            {!schedule ? (
-              <EmptyState
-                title="Belum ada jadwal untuk tanggal ini"
-                description="Klik “Generate piket” di atas — sistem memilih petugas dengan beban paling ringan."
-              />
-            ) : (
-              <ul className="divide-y divide-navy-100">
-                {assignments.map((a) => (
-                  <li
-                    key={a.id}
-                    className="flex flex-wrap items-center gap-2 py-2.5"
-                  >
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-navy-900">
-                      {a.profiles?.nickname || a.profiles?.full_name || "Siswa"}
+      {!hasSchedule ? (
+        <EmptyState
+          title="Belum ada jadwal untuk minggu ini"
+          description="Klik “Generate 1 minggu (Senin–Jumat)” di atas — sistem membagi seluruh kelas ke lima hari secara adil."
+        />
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          {dates.map((date, i) => {
+            const schedule = scheduleByDate.get(date);
+            const members = schedule
+              ? assignments.filter((a) => a.schedule_id === schedule.id)
+              : [];
+            const assignedIds = new Set(members.map((m) => m.student_id));
+            const substituteOptions: StudentOption[] = students
+              .filter((s) => !assignedIds.has(s.id))
+              .map((s) => ({ id: s.id, name: nameOf(s) }));
+            const done = members.filter((m) => m.completed).length;
+
+            return (
+              <Card
+                key={date}
+                className={date === today ? "border-accent-500/60" : undefined}
+              >
+                <CardHeader>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <CardTitle className="text-base">
+                      {WEEKDAY_LABELS[i]}
+                      {date === today ? (
+                        <Badge tone="amber" className="ml-2">
+                          hari ini
+                        </Badge>
+                      ) : null}
+                    </CardTitle>
+                    <span className="text-xs text-navy-400">
+                      {done}/{members.length}
                     </span>
-                    {a.profiles?.gender ? (
-                      <Badge>{a.profiles.gender}</Badge>
-                    ) : null}
-                    <CompletedToggle
-                      assignmentId={a.id}
-                      completed={a.completed}
-                    />
-                    <OverrideControl
-                      assignmentId={a.id}
-                      options={substituteOptions}
-                    />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-
-        <div className="space-y-6">
-          {/* Exclusions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Pengecualian tanggal ini</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-3">
-              <ExclusionPanel
-                date={date}
-                options={allOptions}
-                exclusions={exclusions}
-              />
-            </CardContent>
-          </Card>
-
-          {/* Riwayat */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Riwayat terakhir</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-3">
-              {history.length === 0 ? (
-                <p className="text-sm text-navy-500">Belum ada riwayat.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {history.map((h) => {
-                    const rows = historyAssignments.filter(
-                      (x) => x.schedule_id === h.id
-                    );
-                    const names = rows
-                      .map((x) => x.profiles?.nickname)
-                      .filter(Boolean)
-                      .join(", ");
-                    return (
-                      <li key={h.id} className="text-sm">
-                        <Link
-                          href={`/teacher/piket?date=${h.duty_date}`}
-                          className="font-medium text-navy-900 underline-offset-2 hover:underline"
-                        >
-                          {formatPlainDateID(h.duty_date)}
-                        </Link>{" "}
-                        <span className="text-navy-500">
-                          · {rows.length} petugas
-                          {names ? ` — ${names}` : ""}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
+                  </div>
+                  <p className="text-xs text-navy-500">{formatPlainDateID(date)}</p>
+                </CardHeader>
+                <CardContent className="pt-2">
+                  {members.length === 0 ? (
+                    <p className="text-sm text-navy-400">Tidak ada petugas.</p>
+                  ) : (
+                    <ul className="divide-y divide-navy-100">
+                      {members.map((a) => (
+                        <li key={a.id} className="space-y-1.5 py-2">
+                          <div className="flex items-center gap-2">
+                            <span className="min-w-0 flex-1 truncate text-sm font-medium text-navy-900">
+                              {a.profiles?.nickname ||
+                                a.profiles?.full_name ||
+                                "Siswa"}
+                            </span>
+                            {a.profiles?.gender ? (
+                              <Badge>{a.profiles.gender}</Badge>
+                            ) : null}
+                          </div>
+                          <div className="flex items-center justify-between gap-2">
+                            <CompletedToggle
+                              assignmentId={a.id}
+                              completed={a.completed}
+                            />
+                            <OverrideControl
+                              assignmentId={a.id}
+                              options={substituteOptions}
+                            />
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
-      </div>
+      )}
     </div>
   );
 }

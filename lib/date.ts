@@ -109,6 +109,35 @@ export function fromJakartaInputValue(value: string): string {
   return new Date(`${value}:00+07:00`).toISOString();
 }
 
+/** Senin (YYYY-MM-DD) dari minggu yang memuat tanggal `dateOnly`. */
+export function weekMondayOf(dateOnly: string): string {
+  const [y, m, d] = dateOnly.split("-").map(Number);
+  const wall = new Date(Date.UTC(y, m - 1, d));
+  const dow = wall.getUTCDay(); // 0=Min..6=Sab
+  const diff = dow === 0 ? 6 : dow - 1; // hari sejak Senin
+  wall.setUTCDate(wall.getUTCDate() - diff);
+  return wall.toISOString().slice(0, 10);
+}
+
+/** Dari Senin (YYYY-MM-DD) → 5 tanggal Senin–Jumat. */
+export function weekdayDates(mondayOnly: string): string[] {
+  const [y, m, d] = mondayOnly.split("-").map(Number);
+  const base = Date.UTC(y, m - 1, d);
+  return Array.from({ length: 5 }, (_, i) => {
+    const dt = new Date(base);
+    dt.setUTCDate(dt.getUTCDate() + i);
+    return dt.toISOString().slice(0, 10);
+  });
+}
+
+/** Geser tanggal (YYYY-MM-DD) sebanyak `n` hari (boleh negatif). */
+export function addDaysISO(dateOnly: string, n: number): string {
+  const [y, m, d] = dateOnly.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + n);
+  return dt.toISOString().slice(0, 10);
+}
+
 /** Greeting by Jakarta wall-clock hour. */
 export function greetingID(now: Date = new Date()): string {
   const hour = Number(

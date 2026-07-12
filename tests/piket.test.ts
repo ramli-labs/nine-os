@@ -2,8 +2,18 @@ import { describe, expect, it } from "vitest";
 import {
   pickDutyTeam,
   defaultTeamSize,
+  distributeAcrossWeek,
   type DutyCandidate,
+  type WeekStudent,
 } from "@/lib/piket";
+
+function seededRng(seed = 42) {
+  let s = seed;
+  return () => {
+    s = (s * 1103515245 + 12345) % 2147483648;
+    return s / 2147483648;
+  };
+}
 
 function candidate(
   id: string,
@@ -113,6 +123,56 @@ describe("pickDutyTeam (fairness)", () => {
     const cands = Array.from({ length: 30 }, (_, i) => candidate(`s${i}`, i % 3));
     expect(pickDutyTeam(cands, 7, makeRng())).toEqual(
       pickDutyTeam(cands, 7, makeRng())
+    );
+  });
+});
+
+describe("distributeAcrossWeek (bagi kelas ke Senin–Jumat)", () => {
+  const makeRoster = (nL: number, nP: number, nU = 0): WeekStudent[] => [
+    ...Array.from({ length: nL }, (_, i) => ({ id: `l${i}`, gender: "L" as const })),
+    ...Array.from({ length: nP }, (_, i) => ({ id: `p${i}`, gender: "P" as const })),
+    ...Array.from({ length: nU }, (_, i) => ({ id: `u${i}`, gender: null })),
+  ];
+
+  it("menempatkan setiap siswa tepat sekali", () => {
+    const roster = makeRoster(18, 16);
+    const week = distributeAcrossWeek(roster, seededRng());
+    const all = week.flat();
+    expect(all).toHaveLength(roster.length);
+    expect(new Set(all).size).toBe(roster.length);
+    for (const s of roster) expect(all).toContain(s.id);
+  });
+
+  it("selalu menghasilkan 5 hari", () => {
+    expect(distributeAcrossWeek(makeRoster(10, 10), seededRng())).toHaveLength(5);
+    expect(distributeAcrossWeek([], seededRng())).toHaveLength(5);
+  });
+
+  it("menyeimbangkan jumlah petugas antar hari (selisih ≤ 1)", () => {
+    for (const [nL, nP] of [[18, 16], [20, 12], [17, 17], [3, 2]]) {
+      const week = distributeAcrossWeek(makeRoster(nL, nP), seededRng());
+      const sizes = week.map((d) => d.length);
+      expect(Math.max(...sizes) - Math.min(...sizes)).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("menyebar L dan P merata antar hari (selisih per gender ≤ 1)", () => {
+    const week = distributeAcrossWeek(makeRoster(20, 15), seededRng());
+    const lPerDay = week.map((d) => d.filter((id) => id.startsWith("l")).length);
+    const pPerDay = week.map((d) => d.filter((id) => id.startsWith("p")).length);
+    expect(Math.max(...lPerDay) - Math.min(...lPerDay)).toBeLessThanOrEqual(1);
+    expect(Math.max(...pPerDay) - Math.min(...pPerDay)).toBeLessThanOrEqual(1);
+  });
+
+  it("menangani siswa tanpa gender", () => {
+    const week = distributeAcrossWeek(makeRoster(10, 10, 8), seededRng());
+    expect(week.flat()).toHaveLength(28);
+  });
+
+  it("deterministik dengan rng ber-seed", () => {
+    const roster = makeRoster(18, 16, 3);
+    expect(distributeAcrossWeek(roster, seededRng(7))).toEqual(
+      distributeAcrossWeek(roster, seededRng(7))
     );
   });
 });
