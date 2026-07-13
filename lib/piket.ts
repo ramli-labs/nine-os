@@ -129,3 +129,37 @@ export function distributeAcrossWeek(
   }
   return result;
 }
+
+export interface WeekPlanRow {
+  studentId: string;
+  day: number; // 0=Senin … 4=Jumat
+  coordinator: boolean;
+}
+
+/**
+ * Susun jadwal seminggu DENGAN koordinator.
+ *   - Tiap koordinator ditempatkan di satu hari BERBEDA (diacak),
+ *     maksimal satu koordinator per hari.
+ *   - Siswa lain dibagi rata seperti biasa (ukuran & L/P seimbang).
+ * Koordinator tetap dihitung sebagai petugas hari itu (menandai
+ * coordinator=true), jadi ia memimpin sekaligus ikut piket.
+ */
+export function distributeWeekWithCoordinators(
+  coordinatorIds: string[],
+  others: WeekStudent[],
+  rng: () => number = Math.random,
+  days = 5
+): WeekPlanRow[] {
+  const coords = shuffleIds(coordinatorIds, rng).slice(0, days);
+  const rows: WeekPlanRow[] = [];
+  coords.forEach((id, day) => {
+    rows.push({ studentId: id, day, coordinator: true });
+  });
+
+  const rest = distributeAcrossWeek(others, rng, days);
+  rest.forEach((group, day) => {
+    for (const id of group) rows.push({ studentId: id, day, coordinator: false });
+  });
+
+  return rows;
+}

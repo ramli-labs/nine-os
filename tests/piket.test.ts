@@ -3,6 +3,7 @@ import {
   pickDutyTeam,
   defaultTeamSize,
   distributeAcrossWeek,
+  distributeWeekWithCoordinators,
   type DutyCandidate,
   type WeekStudent,
 } from "@/lib/piket";
@@ -174,6 +175,44 @@ describe("distributeAcrossWeek (bagi kelas ke Senin–Jumat)", () => {
     expect(distributeAcrossWeek(roster, seededRng(7))).toEqual(
       distributeAcrossWeek(roster, seededRng(7))
     );
+  });
+});
+
+describe("distributeWeekWithCoordinators", () => {
+  const others = (n: number): WeekStudent[] =>
+    Array.from({ length: n }, (_, i) => ({
+      id: `o${i}`,
+      gender: (i % 2 === 0 ? "L" : "P") as "L" | "P",
+    }));
+  const coords = ["c1", "c2", "c3", "c4", "c5"];
+
+  it("menempatkan tiap koordinator di hari berbeda & menandainya", () => {
+    const plan = distributeWeekWithCoordinators(coords, others(29), seededRng());
+    const coordRows = plan.filter((p) => p.coordinator);
+    expect(coordRows).toHaveLength(5);
+    expect(new Set(coordRows.map((p) => p.day)).size).toBe(5); // 5 hari beda
+    for (const c of coords)
+      expect(coordRows.some((p) => p.studentId === c)).toBe(true);
+  });
+
+  it("memasukkan semua siswa tepat sekali (koordinator + lainnya)", () => {
+    const plan = distributeWeekWithCoordinators(coords, others(29), seededRng());
+    const ids = plan.map((p) => p.studentId);
+    expect(ids).toHaveLength(34);
+    expect(new Set(ids).size).toBe(34);
+  });
+
+  it("total petugas per hari tetap seimbang (selisih ≤ 1)", () => {
+    const plan = distributeWeekWithCoordinators(coords, others(29), seededRng());
+    const perDay = [0, 0, 0, 0, 0];
+    for (const p of plan) perDay[p.day]++;
+    expect(Math.max(...perDay) - Math.min(...perDay)).toBeLessThanOrEqual(1);
+  });
+
+  it("tanpa koordinator = distribusi biasa", () => {
+    const plan = distributeWeekWithCoordinators([], others(20), seededRng());
+    expect(plan.filter((p) => p.coordinator)).toHaveLength(0);
+    expect(plan).toHaveLength(20);
   });
 });
 

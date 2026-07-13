@@ -98,6 +98,13 @@ export const setStatusSchema = z.object({
   status: z.enum(["active", "inactive"]),
 });
 
+export const setCoordinatorSchema = z.object({
+  user_id: z.string().uuid(),
+  is_coordinator: z
+    .union([z.boolean(), z.enum(["true", "false"])])
+    .transform((v) => v === true || v === "true"),
+});
+
 export const changePasswordSchema = z
   .object({
     password: z

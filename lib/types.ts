@@ -44,6 +44,7 @@ export interface Profile {
   class_name: string;
   avatar_url: string | null;
   gender: Gender | null;
+  is_coordinator: boolean;
   status: AccountStatus;
   must_change_password: boolean;
   last_login_at: string | null;

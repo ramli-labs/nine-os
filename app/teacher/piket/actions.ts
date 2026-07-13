@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { teacherGuard } from "@/lib/teacher-guard";
 import { logAudit } from "@/lib/audit";
-import { distributeAcrossWeek, type WeekStudent } from "@/lib/piket";
+import { distributeWeekWithCoordinators, type WeekStudent } from "@/lib/piket";
 import {
   generateWeekSchema,
   overridePiketSchema,
@@ -58,18 +58,20 @@ export async function generateWeekPiket(
   // Siswa aktif.
   const { data: students } = await guard.supabase
     .from("profiles")
-    .select("id, gender")
+    .select("id, gender, is_coordinator")
     .eq("role", "student")
     .eq("status", "active");
   if (!students || students.length === 0) {
     return { ok: false, error: "Belum ada siswa aktif." };
   }
 
-  const roster: WeekStudent[] = students.map((s) => ({
-    id: s.id,
-    gender: (s.gender as Gender | null) ?? null,
-  }));
-  const perDay = distributeAcrossWeek(roster); // 5 kelompok id
+  const coordinatorIds = students
+    .filter((s) => s.is_coordinator)
+    .map((s) => s.id);
+  const others: WeekStudent[] = students
+    .filter((s) => !s.is_coordinator)
+    .map((s) => ({ id: s.id, gender: (s.gender as Gender | null) ?? null }));
+  const plan = distributeWeekWithCoordinators(coordinatorIds, others);
 
   // Ganti jadwal minggu lama bila ada (cascade menghapus assignment).
   if (existing && existing.length > 0) {
@@ -91,18 +93,24 @@ export async function generateWeekPiket(
     return { ok: false, error: "Jadwal belum berhasil dibuat. Coba lagi." };
   }
 
-  // Susun assignment: cocokkan tiap hari ke jadwal-nya.
+  // Susun assignment dari rencana (termasuk penanda koordinator).
   const scheduleByDate = new Map<string, string>(
     schedules.map((s) => [s.duty_date as string, s.id as string])
   );
-  const rows: { schedule_id: string; student_id: string }[] = [];
-  dates.forEach((date, i) => {
-    const scheduleId = scheduleByDate.get(date);
-    if (!scheduleId) return;
-    for (const student_id of perDay[i]) {
-      rows.push({ schedule_id: scheduleId, student_id });
-    }
-  });
+  const rows = plan
+    .map((p) => {
+      const scheduleId = scheduleByDate.get(dates[p.day]);
+      if (!scheduleId) return null;
+      return {
+        schedule_id: scheduleId,
+        student_id: p.studentId,
+        role: p.coordinator ? "koordinator" : null,
+      };
+    })
+    .filter(
+      (r): r is { schedule_id: string; student_id: string; role: string | null } =>
+        r !== null
+    );
 
   if (rows.length > 0) {
     const { error: assignError } = await guard.supabase
@@ -119,9 +127,12 @@ export async function generateWeekPiket(
     { week_start: monday, students: rows.length });
 
   revalidate();
+  const coordCount = Math.min(coordinatorIds.length, dates.length);
   return {
     ok: true,
-    message: `Jadwal minggu ${monday} dibuat — ${students.length} siswa dibagi rata ke Senin–Jumat.`,
+    message: `Jadwal minggu ${monday} dibuat — ${students.length} siswa dibagi ke Senin–Jumat${
+      coordCount ? `, ${coordCount} koordinator (1 per hari)` : ""
+    }.`,
   };
 }
 

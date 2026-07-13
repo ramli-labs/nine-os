@@ -109,6 +109,11 @@ export default async function StudentPiketPage() {
                         )}
                       >
                         {m.profiles?.nickname || m.profiles?.full_name || "Siswa"}
+                        {m.role === "koordinator" ? (
+                          <Badge tone="green" className="ml-2">
+                            Koordinator
+                          </Badge>
+                        ) : null}
                         {isMe ? (
                           <Badge tone="amber" className="ml-2">
                             kamu

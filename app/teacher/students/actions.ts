@@ -13,6 +13,7 @@ import {
   resetPasswordSchema,
   setGenderSchema,
   setStatusSchema,
+  setCoordinatorSchema,
 } from "@/lib/validation";
 import { identifierToEmail } from "@/lib/constants";
 import { validationError } from "@/lib/action-helpers";
@@ -268,6 +269,37 @@ export async function updateStudentName(
 
   revalidateStudents(id.data);
   return { ok: true, message: "Nama tersimpan." };
+}
+
+/** Teacher menandai / melepas siswa sebagai koordinator piket. */
+export async function setStudentCoordinator(
+  _prev: ActionResult | null,
+  formData: FormData
+): Promise<ActionResult> {
+  const guard = await teacherGuard();
+  if (!guard.ok) return { ok: false, error: guard.error };
+
+  const parsed = setCoordinatorSchema.safeParse({
+    user_id: formData.get("user_id"),
+    is_coordinator: formData.get("is_coordinator"),
+  });
+  if (!parsed.success) return validationError(parsed.error);
+
+  const { error } = await guard.supabase
+    .from("profiles")
+    .update({ is_coordinator: parsed.data.is_coordinator })
+    .eq("id", parsed.data.user_id)
+    .eq("role", "student");
+
+  if (error) return { ok: false, error: "Belum tersimpan. Coba lagi." };
+
+  revalidateStudents(parsed.data.user_id);
+  return {
+    ok: true,
+    message: parsed.data.is_coordinator
+      ? "Ditandai sebagai koordinator piket."
+      : "Dilepas dari koordinator piket.",
+  };
 }
 
 /** Teacher sets/corrects a student's gender (for piket balancing). */

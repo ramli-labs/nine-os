@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, StatusBadge, UrgencyBadge } from "@/components/ui/badge";
 import { ResetPasswordForm } from "./reset-password-form";
 import { GenderForm } from "./gender-form";
+import { CoordinatorForm } from "./coordinator-form";
 import { DeleteStudentForm } from "./delete-student-form";
 import { NameForm } from "./name-form";
 import { StatusForm } from "./status-form";
@@ -101,6 +102,12 @@ export default async function StudentDetailPage({
                 <Badge tone="red">Nonaktif</Badge>
               </>
             ) : null}
+            {student.is_coordinator ? (
+              <>
+                {" "}
+                <Badge tone="green">Koordinator piket</Badge>
+              </>
+            ) : null}
           </p>
           <p className="mt-1 text-xs text-navy-400">
             {student.last_login_at
@@ -118,6 +125,12 @@ export default async function StudentDetailPage({
               userId={student.id}
               fullName={student.full_name}
               nickname={student.nickname}
+            />
+          </div>
+          <div className="mt-2">
+            <CoordinatorForm
+              userId={student.id}
+              isCoordinator={student.is_coordinator}
             />
           </div>
         </div>

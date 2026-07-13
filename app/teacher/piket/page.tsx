@@ -143,9 +143,17 @@ export default async function TeacherPiketPage({
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {dates.map((date, i) => {
             const schedule = scheduleByDate.get(date);
-            const members = schedule
-              ? assignments.filter((a) => a.schedule_id === schedule.id)
-              : [];
+            const members = (
+              schedule
+                ? assignments.filter((a) => a.schedule_id === schedule.id)
+                : []
+            )
+              .slice()
+              .sort(
+                (a, b) =>
+                  (b.role === "koordinator" ? 1 : 0) -
+                  (a.role === "koordinator" ? 1 : 0)
+              );
             const assignedIds = new Set(members.map((m) => m.student_id));
             const substituteOptions: StudentOption[] = students
               .filter((s) => !assignedIds.has(s.id))
@@ -186,6 +194,9 @@ export default async function TeacherPiketPage({
                                 a.profiles?.full_name ||
                                 "Siswa"}
                             </span>
+                            {a.role === "koordinator" ? (
+                              <Badge tone="green">Koordinator</Badge>
+                            ) : null}
                             {a.profiles?.gender ? (
                               <Badge>{a.profiles.gender}</Badge>
                             ) : null}
