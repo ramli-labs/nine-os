@@ -8,3 +8,7 @@ out/
 next-env.d.ts
 .DS_Store
 /test-artifacts/
+
+# Data siswa & hasil impor — JANGAN pernah di-commit
+*-passwords.csv
+data-siswa*.csv
