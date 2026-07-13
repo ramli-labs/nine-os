@@ -15,7 +15,6 @@ import { createClient } from "@/lib/supabase/server";
 import {
   currentWeekStart,
   formatDateTimeID,
-  formatPlainDateID,
   greetingID,
   jakartaDateString,
 } from "@/lib/date";
@@ -25,6 +24,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/feedback";
 
 export const metadata: Metadata = { title: "Beranda" };
+
+const PIKET_DAYS = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat"];
 
 const quickLinks = [
   {
@@ -86,7 +87,6 @@ export default async function DashboardPage() {
       supabase
         .from("piket_schedules")
         .select("id, duty_date")
-        .gte("duty_date", jakartaDateString())
         .order("duty_date", { ascending: true })
         .limit(5),
     ]);
@@ -97,26 +97,25 @@ export default async function DashboardPage() {
   const hasOnboarded = Boolean(onboardingRes.data);
   const focus = announcements[0] ?? null;
 
-  // Giliran piketku berikutnya (jadwal harian).
-  const upcomingSchedules = (piketRes.data ?? []) as {
-    id: string;
-    duty_date: string;
-  }[];
-  let myDutyDate: string | null = null;
-  if (upcomingSchedules.length > 0) {
+  // Rota piket tetap: cari hari giliranku (0=Senin … 4=Jumat).
+  const rota = (piketRes.data ?? []) as { id: string; duty_date: string }[];
+  let myWeekday = -1;
+  if (rota.length > 0) {
     const { data: myAssignments } = await supabase
       .from("piket_assignments")
       .select("schedule_id")
       .eq("student_id", profile.id)
       .in(
         "schedule_id",
-        upcomingSchedules.map((s) => s.id)
+        rota.map((s) => s.id)
       );
     const mine = new Set((myAssignments ?? []).map((a) => a.schedule_id));
-    myDutyDate =
-      upcomingSchedules.find((s) => mine.has(s.id))?.duty_date ?? null;
+    myWeekday = rota.findIndex((s) => mine.has(s.id));
   }
-  const today = jakartaDateString();
+  // Indeks hari ini (0=Senin … 4=Jumat; -1 kalau akhir pekan).
+  const [ty, tm, td] = jakartaDateString().split("-").map(Number);
+  const todayDow = new Date(Date.UTC(ty, tm - 1, td)).getUTCDay(); // 0=Min
+  const todayWeekday = todayDow >= 1 && todayDow <= 5 ? todayDow - 1 : -1;
 
   return (
     <div className="space-y-6">
@@ -126,16 +125,16 @@ export default async function DashboardPage() {
         </h1>
         <p className="mt-1 text-sm text-navy-600">
           Selamat datang di ruang kelasmu.
-          {myDutyDate ? (
+          {myWeekday >= 0 ? (
             <>
               {" "}
               <Link
                 href="/piket"
                 className="font-medium text-navy-900 underline-offset-2 hover:underline"
               >
-                {myDutyDate === today
+                {myWeekday === todayWeekday
                   ? "Hari ini kamu bertugas piket."
-                  : `Piketmu berikutnya: ${formatPlainDateID(myDutyDate)}.`}
+                  : `Piketmu setiap hari ${PIKET_DAYS[myWeekday]}.`}
               </Link>
             </>
           ) : null}

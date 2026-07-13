@@ -6,52 +6,49 @@ import { teacherGuard } from "@/lib/teacher-guard";
 import { logAudit } from "@/lib/audit";
 import { distributeWeekWithCoordinators, type WeekStudent } from "@/lib/piket";
 import {
-  generateWeekSchema,
+  generateRotaSchema,
   overridePiketSchema,
   exclusionSchema,
 } from "@/lib/validation";
-import { weekMondayOf, weekdayDates } from "@/lib/date";
+import { weekMondayOf, weekdayDates, jakartaDateString } from "@/lib/date";
 import { validationError } from "@/lib/action-helpers";
 import type { ActionResult, Gender } from "@/lib/types";
 
 function revalidate() {
   revalidatePath("/teacher/piket");
   revalidatePath("/piket");
+  revalidatePath("/piket-cetak");
   revalidatePath("/dashboard");
 }
 
 /**
- * Generate/regenerate jadwal piket SATU MINGGU (Senin–Jumat) sekaligus.
- * Seluruh siswa aktif dibagi rata ke 5 hari — tiap siswa piket sekali
- * seminggu — dengan L/P disebar merata antar hari. Jadwal minggu yang
- * sudah ada TIDAK ditimpa tanpa confirm_overwrite.
+ * Buat / acak ulang ROTA PIKET TETAP (Senin–Jumat).
+ * Hanya ada SATU rota yang berlaku untuk setiap minggu. Seluruh siswa
+ * aktif dibagi rata ke 5 hari (L/P seimbang), satu koordinator per hari.
+ * Generate/acak ulang mengganti seluruh rota lama.
  */
-export async function generateWeekPiket(
+export async function generateRota(
   _prev: ActionResult | null,
   formData: FormData
 ): Promise<ActionResult> {
   const guard = await teacherGuard();
   if (!guard.ok) return { ok: false, error: guard.error };
 
-  const parsed = generateWeekSchema.safeParse({
-    week_ref: formData.get("week_ref"),
+  const parsed = generateRotaSchema.safeParse({
     confirm_overwrite: formData.get("confirm_overwrite") ?? "false",
   });
   if (!parsed.success) return validationError(parsed.error);
 
-  const monday = weekMondayOf(parsed.data.week_ref);
-  const dates = weekdayDates(monday); // [Senin … Jumat]
-
-  // Jangan menimpa jadwal minggu ini tanpa konfirmasi.
+  // Rota bersifat tunggal: kalau sudah ada, minta konfirmasi sebelum ganti.
   const { data: existing } = await guard.supabase
     .from("piket_schedules")
     .select("id")
-    .in("duty_date", dates);
+    .limit(1);
   if (existing && existing.length > 0 && !parsed.data.confirm_overwrite) {
     return {
       ok: false,
       error:
-        "Jadwal untuk minggu ini sudah ada. Gunakan “Acak ulang minggu” bila memang ingin menggantinya.",
+        "Jadwal piket sudah ada. Gunakan “Acak ulang” bila memang ingin menggantinya.",
     };
   }
 
@@ -73,18 +70,22 @@ export async function generateWeekPiket(
     .map((s) => ({ id: s.id, gender: (s.gender as Gender | null) ?? null }));
   const plan = distributeWeekWithCoordinators(coordinatorIds, others);
 
-  // Ganti jadwal minggu lama bila ada (cascade menghapus assignment).
+  // Hapus seluruh rota lama (cascade menghapus assignment).
   if (existing && existing.length > 0) {
     const { error: delError } = await guard.supabase
       .from("piket_schedules")
       .delete()
-      .in("duty_date", dates);
+      .gte("duty_date", "0001-01-01");
     if (delError) {
       return { ok: false, error: "Gagal mengganti jadwal lama. Coba lagi." };
     }
   }
 
-  // Buat 5 jadwal harian.
+  // Simpan sebagai 5 hari (Senin–Jumat) memakai tanggal minggu berjalan.
+  // Tampilan memakai NAMA HARI, jadi rota berlaku untuk semua minggu.
+  const monday = weekMondayOf(jakartaDateString());
+  const dates = weekdayDates(monday);
+
   const { data: schedules, error: schedError } = await guard.supabase
     .from("piket_schedules")
     .insert(dates.map((duty_date) => ({ duty_date, generated_by: guard.userId })))
@@ -93,7 +94,6 @@ export async function generateWeekPiket(
     return { ok: false, error: "Jadwal belum berhasil dibuat. Coba lagi." };
   }
 
-  // Susun assignment dari rencana (termasuk penanda koordinator).
   const scheduleByDate = new Map<string, string>(
     schedules.map((s) => [s.duty_date as string, s.id as string])
   );
@@ -121,18 +121,22 @@ export async function generateWeekPiket(
     }
   }
 
-  await logAudit(guard.supabase, guard.userId,
-    existing && existing.length > 0 ? "piket.regenerate_week" : "piket.generate_week",
-    "piket_schedule", schedules[0]?.id,
-    { week_start: monday, students: rows.length });
+  await logAudit(
+    guard.supabase,
+    guard.userId,
+    existing && existing.length > 0 ? "piket.regenerate_rota" : "piket.generate_rota",
+    "piket_schedule",
+    schedules[0]?.id,
+    { students: rows.length }
+  );
 
   revalidate();
   const coordCount = Math.min(coordinatorIds.length, dates.length);
   return {
     ok: true,
-    message: `Jadwal minggu ${monday} dibuat — ${students.length} siswa dibagi ke Senin–Jumat${
-      coordCount ? `, ${coordCount} koordinator (1 per hari)` : ""
-    }.`,
+    message: `Jadwal piket dibuat — ${students.length} siswa dibagi ke Senin–Jumat${
+      coordCount ? `, ${coordCount} koordinator` : ""
+    }. Berlaku setiap minggu.`,
   };
 }
 

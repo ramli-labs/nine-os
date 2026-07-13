@@ -16,6 +16,7 @@ const PROTECTED_PREFIXES = [
   "/teacher",
   "/change-password",
   "/piket",
+  "/piket-cetak",
   "/materi",
   "/kesepakatan",
 ];

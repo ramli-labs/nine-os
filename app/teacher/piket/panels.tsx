@@ -1,12 +1,8 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { CheckCircle2, Circle, Loader2, Repeat2, Shuffle, X } from "lucide-react";
-import {
-  generateWeekPiket,
-  overrideAssignment,
-  toggleCompleted,
-} from "./actions";
+import { Loader2, Repeat2, Shuffle, X } from "lucide-react";
+import { generateRota, overrideAssignment } from "./actions";
 import type { ActionResult } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/field";
@@ -17,16 +13,10 @@ export interface StudentOption {
   name: string;
 }
 
-/* ── Generate / acak ulang satu minggu ─────────────────────── */
-export function GenerateWeekPanel({
-  weekRef,
-  hasSchedule,
-}: {
-  weekRef: string;
-  hasSchedule: boolean;
-}) {
+/* ── Buat / acak ulang rota tetap ──────────────────────────── */
+export function GenerateRotaPanel({ hasSchedule }: { hasSchedule: boolean }) {
   const [state, action, pending] = useActionState<ActionResult | null, FormData>(
-    generateWeekPiket,
+    generateRota,
     null
   );
   const [confirming, setConfirming] = useState(false);
@@ -38,7 +28,6 @@ export function GenerateWeekPanel({
   return (
     <div className="space-y-3">
       <form action={action} className="flex flex-wrap items-center gap-3">
-        <input type="hidden" name="week_ref" value={weekRef} />
         <input
           type="hidden"
           name="confirm_overwrite"
@@ -52,12 +41,12 @@ export function GenerateWeekPanel({
             ) : (
               <Shuffle className="h-4 w-4" aria-hidden />
             )}
-            Generate 1 minggu (Senin–Jumat)
+            Buat jadwal piket
           </Button>
         ) : !confirming ? (
           <Button type="button" variant="outline" onClick={() => setConfirming(true)}>
             <Repeat2 className="h-4 w-4" aria-hidden />
-            Acak ulang minggu…
+            Acak ulang…
           </Button>
         ) : (
           <>
@@ -67,7 +56,7 @@ export function GenerateWeekPanel({
               ) : (
                 <Repeat2 className="h-4 w-4" aria-hidden />
               )}
-              Ya, ganti jadwal minggu ini
+              Ya, ganti jadwal
             </Button>
             <Button type="button" variant="ghost" onClick={() => setConfirming(false)}>
               Batal
@@ -82,35 +71,7 @@ export function GenerateWeekPanel({
   );
 }
 
-/* ── Toggle completed ──────────────────────────────────────── */
-export function CompletedToggle({
-  assignmentId,
-  completed,
-}: {
-  assignmentId: string;
-  completed: boolean;
-}) {
-  return (
-    <form action={toggleCompleted}>
-      <input type="hidden" name="assignment_id" value={assignmentId} />
-      <input type="hidden" name="completed" value={String(!completed)} />
-      <button
-        type="submit"
-        title={completed ? "Tandai belum selesai" : "Tandai selesai"}
-        className="tap-target inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-navy-700 hover:bg-navy-100"
-      >
-        {completed ? (
-          <CheckCircle2 className="h-5 w-5 text-emerald-600" aria-hidden />
-        ) : (
-          <Circle className="h-5 w-5 text-navy-300" aria-hidden />
-        )}
-        {completed ? "Selesai" : "Belum"}
-      </button>
-    </form>
-  );
-}
-
-/* ── Manual override ───────────────────────────────────────── */
+/* ── Ganti petugas (manual override) ───────────────────────── */
 export function OverrideControl({
   assignmentId,
   options,
